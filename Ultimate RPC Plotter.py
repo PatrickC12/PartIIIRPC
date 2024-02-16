@@ -134,8 +134,10 @@ class CSVPlotterApp:
                         return a * np.exp(b * x) + c
                     exp_data = data[data['Voltage/kV'] > threshold]  # Same threshold or adjust as necessary
                     exp_fit_params, _ = curve_fit(exp_func, exp_data.iloc[:, 0], exp_data.iloc[:, 1])
+                    exp_data_x_values = exp_data['Voltage/kV'].values  # Convert to numpy array for arithmetic operations
+                    exp_fit_y_values = exp_func(exp_data_x_values, *exp_fit_params)  # Apply the function to the numpy array directly
+                    plt.plot(exp_data_x_values, exp_fit_y_values, label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
                     # plt.plot(data.iloc[:, 0], exp_func(data.iloc[:, 0], *exp_fit_params), label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
-                    plt.plot([x for x in data.iloc[:, 0] if x > threshold], exp_func([x for x in data.iloc[:, 0] if x < threshold]), label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')                    
                     sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
                 else:
                     messagebox.showwarning("Fit Error", "Could not determine a fitting threshold.")
