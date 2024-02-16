@@ -10,3 +10,4 @@ Todo:
 - Flip polarity of voltage (if possible?)
 - Why are we expecting an exponential fit...
 - Try and repeat efficiency measurement produced RPC IV Curve document in literature folder in google drive
+- Check gradient of linear regions of plots. Should be consistent across plots. Linear resistance due to spacers in RPC.
