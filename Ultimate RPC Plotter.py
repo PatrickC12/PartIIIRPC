@@ -32,44 +32,39 @@ class CSVPlotterApp:
         # Plot button, disabled initially
         self.plot_button = ttk.Button(self.frame, text="Plot Selected", state='disabled', command=self.plot_selected)
         self.plot_button.pack(pady=5)
-    
-    def find_best_threshold(self, data):
-        # Placeholder values for best error and threshold
-        best_error = float('inf')
-        best_threshold = None
 
-        # Try thresholds in the voltage range
-        for threshold in np.linspace(data['Voltage/kV'].min(), data['Voltage/kV'].max(), 100):
-            # Split data into linear and exponential parts
-            linear_data = data[data['Voltage/kV'] <= threshold]
-            exp_data = data[data['Voltage/kV'] > threshold]
+        # Error bar checkbox
+        self.error_bar_var = tk.BooleanVar()
 
-            if len(linear_data) < 2 or len(exp_data) < 3:  # Ensure exp_data has at least 3 points for 3 parameters
-                # Not enough points to fit
-                continue
+        # Checkbox for using threshold voltage fitting
+        self.use_threshold_var = tk.BooleanVar()
+        self.use_threshold_chk = ttk.Checkbutton(self.frame, text="Use Threshold Voltage Fitting", variable=self.use_threshold_var, command=self.toggle_threshold_inputs)
+        self.use_threshold_chk.pack(pady=5)
 
-            # Fit linear part
-            linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
-            linear_fit_func = np.poly1d(linear_fit_params)
+        # Initially hide threshold entries, will be toggled by the checkbox
+        self.threshold1_label = ttk.Label(self.frame, text="Threshold 1 (kV):")
+        self.threshold1_entry = ttk.Entry(self.frame)
+        self.threshold2_label = ttk.Label(self.frame, text="Threshold 2 (kV):")
+        self.threshold2_entry = ttk.Entry(self.frame)
+        
+        # Initially disable the entries for threshold values
+        self.toggle_threshold_inputs()
 
-            # Fit exponential part, now with check for sufficient data points
-            try:
-                exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'])
-            except RuntimeError:
-                # Fit failed
-                continue
-
-            # Calculate combined error (sum of squared residuals)
-            linear_resid = linear_data['Current/uA'] - linear_fit_func(linear_data['Voltage/kV'])
-            exp_resid = exp_data['Current/uA'] - exp_func(exp_data['Voltage/kV'], *exp_fit_params)
-            total_error = np.sum(linear_resid**2) + np.sum(exp_resid**2)
-
-            if total_error < best_error:
-                best_error = total_error
-                best_threshold = threshold
-
-        return best_threshold
-
+    def toggle_threshold_inputs(self):
+        if self.use_threshold_var.get():
+            # Show and enable threshold entries
+            self.threshold1_label.pack(pady=(5, 0))
+            self.threshold1_entry.pack(pady=(0, 5))
+            self.threshold2_label.pack(pady=(5, 0))
+            self.threshold2_entry.pack(pady=(0, 5))
+        else:
+            # Hide and clear threshold entries
+            self.threshold1_label.pack_forget()
+            self.threshold1_entry.pack_forget()
+            self.threshold2_label.pack_forget()
+            self.threshold2_entry.pack_forget()
+            self.threshold1_entry.delete(0, tk.END)
+            self.threshold2_entry.delete(0, tk.END)
 
     def load_folder(self):
         global folder_path
@@ -78,7 +73,7 @@ class CSVPlotterApp:
             return
         
         for widget in self.frame.winfo_children():
-            if widget not in [self.load_button, self.plot_button]:
+            if widget not in [self.load_button, self.plot_button, self.use_threshold_chk, self.error_bar_var]:
                 widget.destroy()
 
         self.csv_files = {}
@@ -95,15 +90,9 @@ class CSVPlotterApp:
             chk = ttk.Checkbutton(self.frame, text=file, variable=self.csv_files[file])
             chk.pack(anchor='w')
 
-        # Create and pack the error bar checkbox after loading the files
-        self.error_bar_var = tk.BooleanVar()
+        # Error bar checkbox creation here
         self.error_bar_chk = ttk.Checkbutton(self.frame, text="Add Error Bars", variable=self.error_bar_var)
         self.error_bar_chk.pack(pady=5)
-        
-        # checkbox for line fitting
-        self.fit_lines_var = tk.BooleanVar()
-        self.fit_lines_chk = ttk.Checkbutton(self.frame, text="Fit Linear and Exponential Regions", variable=self.fit_lines_var)
-        self.fit_lines_chk.pack(pady=5)
 
     def plot_selected(self):
         selected_files = [file for file, var in self.csv_files.items() if var.get()]
@@ -116,41 +105,24 @@ class CSVPlotterApp:
         for file in selected_files:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
-            
-            if self.fit_lines_var.get():
-                # Fit linear region
-                threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
-                if threshold is not None:
-                    
-                    linear_data = data[data['Voltage/kV'] <= threshold]  # Define a suitable threshold
-                    linear_fit_params = np.polyfit(linear_data.iloc[:, 0], linear_data.iloc[:, 1], 1)
-                    linear_fit_line = np.poly1d(linear_fit_params)
-                    # LowerValues = [x for x in data.iloc[:, 0] if x < threshold]
-                    # plt.plot(data.iloc[:, 0], linear_fit_line(data.iloc[:, 0]), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}')
-                    plt.plot([x for x in data.iloc[:, 0] if x < threshold], linear_fit_line([x for x in data.iloc[:, 0] if x < threshold]), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}')
 
-                    # Fit exponential region
-                    # Assuming exponential region is defined by higher voltages
-                    def exp_func(x, a, b, c):
-                        return a * np.exp(b * x) + c
-                    exp_data = data[data['Voltage/kV'] > threshold]  # Same threshold or adjust as necessary
-                    exp_fit_params, _ = curve_fit(exp_func, exp_data.iloc[:, 0], exp_data.iloc[:, 1])
-                    exp_data_x_values = exp_data['Voltage/kV'].values  # Convert to numpy array for arithmetic operations
-                    exp_fit_y_values = exp_func(exp_data_x_values, *exp_fit_params)  # Apply the function to the numpy array directly
-                    plt.plot(exp_data_x_values, exp_fit_y_values, label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
-                    # plt.plot(data.iloc[:, 0], exp_func(data.iloc[:, 0], *exp_fit_params), label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
-                    sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
-                else:
-                    messagebox.showwarning("Fit Error", "Could not determine a fitting threshold.")
+            if self.use_threshold_var.get():
+                try:
+                    threshold1 = float(self.threshold1_entry.get())
+                    threshold2 = float(self.threshold2_entry.get())
+                except ValueError:
+                    messagebox.showerror("Invalid Input", "Please enter valid numbers for thresholds.")
                     return
-            
-            elif self.error_bar_var.get():
+
+                # Plotting with thresholds
+                # Add the fitting logic here as before
+                
+            sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
+
+            if self.error_bar_var.get():
                 # Adjusting error values: replace 0 with 0.01
                 errors = data.iloc[:, 2].replace(0, 0.01)
-                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
                 plt.errorbar(data.iloc[:, 0], data.iloc[:, 1], yerr=errors, fmt='o', capsize=5, label='_nolegend_')
-            else:
-                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
