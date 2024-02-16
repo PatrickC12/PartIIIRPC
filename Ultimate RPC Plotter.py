@@ -44,7 +44,7 @@ class CSVPlotterApp:
             linear_data = data[data['Voltage/kV'] <= threshold]
             exp_data = data[data['Voltage/kV'] > threshold]
 
-            if len(linear_data) < 2 or len(exp_data) < 2:
+            if len(linear_data) < 2 or len(exp_data) < 3:  # Ensure exp_data has at least 3 points for 3 parameters
                 # Not enough points to fit
                 continue
 
@@ -52,7 +52,7 @@ class CSVPlotterApp:
             linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
             linear_fit_func = np.poly1d(linear_fit_params)
 
-            # Fit exponential part
+            # Fit exponential part, now with check for sufficient data points
             try:
                 exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'])
             except RuntimeError:
@@ -69,6 +69,7 @@ class CSVPlotterApp:
                 best_threshold = threshold
 
         return best_threshold
+
 
     def load_folder(self):
         global folder_path
