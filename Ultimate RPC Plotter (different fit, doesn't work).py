@@ -13,7 +13,7 @@ sns.set_theme(style="darkgrid")
 #Define Fitting function
 
 def exp_func(x, a, b, c):
-    return a * np.exp(b * x) + c
+    return a * np.exp(b * (x-c))
 
 class CSVPlotterApp:
     def __init__(self, master):
@@ -48,9 +48,9 @@ class CSVPlotterApp:
 
             if len(linear_data) < 2 or len(exp_data) < 2:
                 # Not enough points to fit
+                #Do not attempt to fit the data if there are too few data points given in certain regimes given the thresholds.
 
-                messagebox.showinfo("Fitting Error", "Not enough data in linear or exponential region to fit data.")
-                return
+                continue
 
             # Fit linear part
             linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
@@ -58,7 +58,10 @@ class CSVPlotterApp:
 
             # Fit exponential part
             try:
-                exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'])
+                c_fixed = threshold
+                exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x,a,b,c_fixed), exp_data['Voltage/kV'], exp_data['Current/uA'])
+
+                exp_fit_params= np.append(exp_fit_params,c_fixed)
             except RuntimeError:
                 # Fit failed
                 continue
@@ -147,6 +150,7 @@ class CSVPlotterApp:
                     def exp_func(x, a, b, c):
                         return a * np.exp(b * x) + c
                     exp_data = data[data['Voltage/kV'] > threshold]  # Same threshold or adjust as necessary
+                    print(exp_data)
                     exp_fit_params, _ = curve_fit(exp_func, exp_data.iloc[:, 0], exp_data.iloc[:, 1])
                     exp_data_x_values = exp_data['Voltage/kV'].values  # Convert to numpy array for arithmetic operations
                     exp_fit_y_values = exp_func(exp_data_x_values, *exp_fit_params)  # Apply the function to the numpy array directly
