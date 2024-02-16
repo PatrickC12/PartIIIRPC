@@ -9,3 +9,4 @@ Todo:
 - Fix floating ground of Large RPC setup. 
 - Flip polarity of voltage (if possible?)
 - Why are we expecting an exponential fit...
+- Try and repeat efficiency measurement produced RPC IV Curve document in literature folder in google drive
