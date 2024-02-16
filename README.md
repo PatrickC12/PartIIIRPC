@@ -7,4 +7,5 @@ Todo:
 - Repeat scintillator coincidence w/ OR Logic enable as well. (perhaps we already did this?? No (patrick)
 - Compare current densities for mini and massive RPCs.
 - Fix floating ground of Large RPC setup. 
-
+- Flip polarity of voltage (if possible?)
+- Why are we expecting an exponential fit...
