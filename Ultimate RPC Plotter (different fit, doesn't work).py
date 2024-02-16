@@ -10,8 +10,10 @@ from scipy.optimize import curve_fit
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
 
+#Define Fitting function
+
 def exp_func(x, a, b, c):
-    return a * np.exp(b * x) + c
+    return a * np.exp(b * (x-c))
 
 class CSVPlotterApp:
     def __init__(self, master):
@@ -46,6 +48,8 @@ class CSVPlotterApp:
 
             if len(linear_data) < 2 or len(exp_data) < 2:
                 # Not enough points to fit
+                #Do not attempt to fit the data if there are too few data points given in certain regimes given the thresholds.
+
                 continue
 
             # Fit linear part
@@ -54,7 +58,10 @@ class CSVPlotterApp:
 
             # Fit exponential part
             try:
-                exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'])
+                c_fixed = threshold
+                exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x,a,b,c_fixed), exp_data['Voltage/kV'], exp_data['Current/uA'])
+
+                exp_fit_params= np.append(exp_fit_params,c_fixed)
             except RuntimeError:
                 # Fit failed
                 continue
@@ -72,6 +79,9 @@ class CSVPlotterApp:
 
     def load_folder(self):
         global folder_path
+        
+        #Folder containing the csv data
+
         folder_path = filedialog.askdirectory(title="Select Folder Containing CSV Files")
         if not folder_path:
             return
@@ -83,9 +93,14 @@ class CSVPlotterApp:
         self.csv_files = {}
 
         files = [file for file in os.listdir(folder_path) if file.endswith('.csv')]
+
+        #Check if any csv files in directory chosen
+
         if not files:
             messagebox.showinfo("No CSV Files", "No CSV files found in the selected folder.")
             return
+        
+        #Enable plot_button widget after data folder selected
 
         self.plot_button['state'] = 'normal'
 
@@ -115,6 +130,8 @@ class CSVPlotterApp:
         for file in selected_files:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
+
+            #Checking that the "Fit Linear..." checkbox is ticked
             
             if self.fit_lines_var.get():
                 # Fit linear region
@@ -133,6 +150,7 @@ class CSVPlotterApp:
                     def exp_func(x, a, b, c):
                         return a * np.exp(b * x) + c
                     exp_data = data[data['Voltage/kV'] > threshold]  # Same threshold or adjust as necessary
+                    print(exp_data)
                     exp_fit_params, _ = curve_fit(exp_func, exp_data.iloc[:, 0], exp_data.iloc[:, 1])
                     exp_data_x_values = exp_data['Voltage/kV'].values  # Convert to numpy array for arithmetic operations
                     exp_fit_y_values = exp_func(exp_data_x_values, *exp_fit_params)  # Apply the function to the numpy array directly
