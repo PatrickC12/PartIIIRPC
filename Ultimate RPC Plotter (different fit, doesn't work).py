@@ -131,49 +131,49 @@ class CSVPlotterApp:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
 
-            #Checking that the "Fit Linear..." checkbox is ticked
-            
             if self.fit_lines_var.get():
-                # Fit linear region
                 threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
                 if threshold is not None:
+                    # Fit linear part
+                    linear_data = data[data['Voltage/kV'] <= threshold]
+                    linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
+                    linear_fit_func = np.poly1d(linear_fit_params)
                     
-                    linear_data = data[data['Voltage/kV'] <= threshold]  # Define a suitable threshold
-                    linear_fit_params = np.polyfit(linear_data.iloc[:, 0], linear_data.iloc[:, 1], 1)
-                    linear_fit_line = np.poly1d(linear_fit_params)
-                    # LowerValues = [x for x in data.iloc[:, 0] if x < threshold]
-                    # plt.plot(data.iloc[:, 0], linear_fit_line(data.iloc[:, 0]), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}')
-                    plt.plot([x for x in data.iloc[:, 0] if x < threshold], linear_fit_line([x for x in data.iloc[:, 0] if x < threshold]), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}')
+                    # Plot linear fit
+                    linear_x_vals = np.linspace(data['Voltage/kV'].min(), threshold, 100)
+                    plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}', linestyle="--")
 
-                    # Fit exponential region
-                    # Assuming exponential region is defined by higher voltages
-                    def exp_func(x, a, b, c):
-                        return a * np.exp(b * x) + c
-                    exp_data = data[data['Voltage/kV'] > threshold]  # Same threshold or adjust as necessary
-                    print(exp_data)
-                    exp_fit_params, _ = curve_fit(exp_func, exp_data.iloc[:, 0], exp_data.iloc[:, 1])
-                    exp_data_x_values = exp_data['Voltage/kV'].values  # Convert to numpy array for arithmetic operations
-                    exp_fit_y_values = exp_func(exp_data_x_values, *exp_fit_params)  # Apply the function to the numpy array directly
-                    plt.plot(exp_data_x_values, exp_fit_y_values, label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
-                    # plt.plot(data.iloc[:, 0], exp_func(data.iloc[:, 0], *exp_fit_params), label=f'Exp Fit: y={exp_fit_params[0]:.2f}e^({exp_fit_params[1]:.2f}x)+{exp_fit_params[2]:.2f}')
-                    sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
+                    # Fit exponential part
+                    exp_data = data[data['Voltage/kV'] > threshold]
+                    try:
+                        c_fixed = threshold
+                        exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, c_fixed), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                    except RuntimeError:
+                        continue  # Skip if fit fails
+
+                    # Plot exponential fit
+                    exp_x_vals = np.linspace(threshold, data['Voltage/kV'].max(), 100)
+                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params, c_fixed), label='Exponential Fit', linestyle="--")
+
+                    # Plot original data points
+                    sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
+                    
                 else:
                     messagebox.showwarning("Fit Error", "Could not determine a fitting threshold.")
                     return
-            
             elif self.error_bar_var.get():
-                # Adjusting error values: replace 0 with 0.01
-                errors = data.iloc[:, 2].replace(0, 0.01)
-                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
-                plt.errorbar(data.iloc[:, 0], data.iloc[:, 1], yerr=errors, fmt='o', capsize=5, label='_nolegend_')
+                # Your error bar plotting logic here
+                pass
             else:
-                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
+                # Plot without fitting or error bars
+                sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
         plt.title('Voltage vs. Current')
         plt.legend()
         plt.show()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
