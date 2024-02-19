@@ -66,6 +66,10 @@ class CSVPlotterApp:
                 # Fit failed
                 continue
 
+            # Calculate combined error (sum of squared residuals)
+            linear_resid = linear_data['Current/uA'] - linear_fit_func(linear_data['Voltage/kV'])
+            SSE= np.sum(linear_resid**2)
+
             #Calculate R2
 
             diff = linear_data['Voltage/kV']-linear_data['Voltage/kV'].mean()
