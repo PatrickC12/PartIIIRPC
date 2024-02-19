@@ -71,7 +71,7 @@ class CSVPlotterApp:
 
                 # Exponential fit and R^2 calculation
                 try:
-                    exp_fit_params, _= curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                    exp_fit_params,_= curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
                     exp_resid = np.log(exp_data['Current/uA']) - np.log(exp_func(exp_data['Voltage/kV'], *exp_fit_params, threshold_exp))
                     SSE_exp = np.sum(exp_resid**2)
                     SST_exp = np.sum((np.log(exp_data['Current/uA']) - np.log(exp_data['Current/uA']).mean())**2)
