@@ -119,7 +119,7 @@ class CSVPlotterApp:
 
         plt.figure(figsize=(10, 8))
         manual_threshold = self.manual_threshold_var.get()
-        initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.manual_threshold_var.get()]
+        initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.initial_guess_c_var.get()]  # Corrected to use the proper variable for 'c'
 
         for file in selected_files:
             data_path = os.path.join(folder_path, file)
@@ -128,10 +128,11 @@ class CSVPlotterApp:
             sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
 
             if self.fit_lines_var.get():
-                if manual_threshold > 0:
+                if manual_threshold > 0:  # Use manual threshold if specified
                     threshold = manual_threshold
-                else:
+                else:  # Otherwise, find the best threshold automatically
                     threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
+
                 if threshold is not None:
                     # Linear fit
                     linear_data = data[data['Voltage/kV'] <= threshold]
@@ -142,11 +143,12 @@ class CSVPlotterApp:
                         label_linear_fit = f'Linear Fit: $y = {linear_fit_params[0]:.2f}x + {linear_fit_params[1]:.2f}$'
                         plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), linestyle="--", label=label_linear_fit)
 
-                    # Exponential fit
+                    # Exponential fit with initial guesses
                     exp_data = data[data['Voltage/kV'] > threshold]
                     if len(exp_data) > 1:
                         try:
-                            exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=[50.0, 10.0, threshold], maxfev = 10000)
+                            # Use the corrected initial guesses here
+                            exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=initial_guesses, maxfev=10000)
                             exp_x_vals = np.linspace(threshold, data['Voltage/kV'].max(), 100)
                             label_exp_fit = f'Exp Fit: $y = {exp_fit_params[0]:.2f} \cdot e^{{{exp_fit_params[1]:.2f}(x-{exp_fit_params[2]:.2f})}}$'
                             plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params), linestyle="--", label=label_exp_fit)
@@ -155,13 +157,18 @@ class CSVPlotterApp:
 
             # Placeholder for error bars functionality
             if self.error_bar_var.get():
-                pass  # Implement error bar logic here
+                # Adjusting error values: replace 0 with 0.01
+                errors = data.iloc[:, 2].replace(0, 0.01)
+                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
+                plt.errorbar(data.iloc[:, 0], data.iloc[:, 1], yerr=errors, fmt='o', capsize=5, label='_nolegend_')
+                pass
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
         plt.title('Voltage vs. Current')
         plt.legend()
         plt.show()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
