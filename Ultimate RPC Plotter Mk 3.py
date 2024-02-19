@@ -36,54 +36,56 @@ class CSVPlotterApp:
         self.plot_button.pack(pady=5)
     
     def find_best_threshold(self, data):
-        # Placeholder values for best error and threshold
-        best_R2 = float('inf')
-        best_threshold = None
+        best_R2_linear = -float('inf')
+        best_R2_exp = -float('inf')
+        best_threshold_linear = None
+        best_threshold_exp = None
 
-        # Try thresholds in the voltage range
-        for threshold in np.linspace(data['Voltage/kV'].min(), data['Voltage/kV'].max(), 100):
-            # Split data into linear and exponential parts
-            linear_data = data[data['Voltage/kV'] <= threshold]
-            exp_data = data[data['Voltage/kV'] > threshold]
+        # Define a range of potential thresholds
+        thresholds = np.linspace(data['Voltage/kV'].min(), data['Voltage/kV'].max(), 100)
 
-            if len(linear_data) < 2 or len(exp_data) < 2:
-                # Not enough points to fit
-                #Do not attempt to fit the data if there are too few data points given in certain regimes given the thresholds.
+        # Iterate over thresholds for the linear region
+        for i, threshold_linear in enumerate(thresholds[:-1]):  # Exclude the last point to ensure a separate region for exponential fit
+            linear_data = data[data['Voltage/kV'] <= threshold_linear]
 
+            if len(linear_data) < 2:
                 continue
 
-            # Fit linear part
+            # Linear fit and R^2 calculation for the linear region
             linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
             linear_fit_func = np.poly1d(linear_fit_params)
+            SSE_linear = np.sum((linear_data['Current/uA'] - linear_fit_func(linear_data['Voltage/kV']))**2)
+            SST_linear = np.sum((linear_data['Current/uA'] - linear_data['Current/uA'].mean())**2)
+            R2_linear = 1 - SSE_linear/SST_linear
 
-            # Fit exponential part
-            try:
-                c_fixed = threshold
-                exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x,a,b,c_fixed), exp_data['Voltage/kV'], exp_data['Current/uA'])
+            if R2_linear > best_R2_linear:
+                best_R2_linear = R2_linear
+                best_threshold_linear = threshold_linear
 
-                exp_fit_params= np.append(exp_fit_params,c_fixed)
-            except RuntimeError:
-                # Fit failed
-                continue
+            # Iterate over thresholds for the exponential region, starting from the current threshold_linear + 1 to ensure separation
+            for threshold_exp in thresholds[i+1:]:
+                exp_data = data[data['Voltage/kV'] > threshold_exp]
 
-            # Calculate combined error (sum of squared residuals)
-            linear_resid = linear_data['Current/uA'] - linear_fit_func(linear_data['Voltage/kV'])
-            SSE= np.sum(linear_resid**2)
+                if len(exp_data) < 2:
+                    continue
 
-            #Calculate R2
+                # Exponential fit and R^2 calculation
+                try:
+                    exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                    exp_resid = np.log(exp_data['Current/uA']) - np.log(exp_func(exp_data['Voltage/kV'], *exp_fit_params, threshold_exp))
+                    SSE_exp = np.sum(exp_resid**2)
+                    SST_exp = np.sum((np.log(exp_data['Current/uA']) - np.log(exp_data['Current/uA']).mean())**2)
+                    R2_exp = 1 - SSE_exp/SST_exp
+                except RuntimeError:
+                    continue
 
-            diff = linear_data['Voltage/kV']-linear_data['Voltage/kV'].mean()
-            square_diff = diff**2
-            SST = np.sum(square_diff)
+                if R2_exp > best_R2_exp and threshold_exp > best_threshold_linear:
+                    best_R2_exp = R2_exp
+                    best_threshold_exp = threshold_exp
 
-            R2 = 1 - SSE/SST
+        return best_threshold_linear, best_threshold_exp
 
-            if R2 < 0.99:
-                    if R2 > best_R2:
-                        best_R2 = R2
-                        best_threshold = threshold
 
-        return best_threshold
 
     def load_folder(self):
         global folder_path
