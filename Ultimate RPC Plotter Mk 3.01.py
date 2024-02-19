@@ -3,16 +3,19 @@ from tkinter import filedialog, messagebox, ttk
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
 import numpy as np
 from scipy.optimize import curve_fit
+import os
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
 
-# Define Fitting function
+# Define the fitting function for exponential fitting
 def exp_func(x, a, b, c):
-    return a * np.exp(b * (x - c))
+    try:
+        return a * np.exp(b * (x - c))
+    except OverflowError:
+        return np.inf
 
 class CSVPlotterApp:
     def __init__(self, master):
@@ -25,143 +28,134 @@ class CSVPlotterApp:
         self.load_button.pack(pady=5)
 
         self.csv_files = {}
-        self.plot_button = ttk.Button(self.frame, text="Plot Selected", state='disabled', command=self.plot_selected)
-        self.plot_button.pack(pady=5)
 
     def find_best_threshold(self, data):
-        best_R2_linear = -np.inf
-        best_R2_exp = -np.inf
-        best_threshold_linear = None
-        best_threshold_exp = None
+        best_R2 = -np.inf
+        best_threshold = None
 
-        # Precompute common values and use efficient numpy operations
         voltage = data['Voltage/kV'].values
-        current = data['Current/uA'].values
-        log_current = np.log(current)
-
+        total_points = len(voltage)
         thresholds = np.linspace(voltage.min(), voltage.max(), 100)
 
-        for threshold_linear in thresholds[:-1]:  # Exclude the last point
-            linear_mask = voltage <= threshold_linear
-            linear_voltages = voltage[linear_mask]
-            linear_currents = current[linear_mask]
-            # log_linear_currents = log_current[linear_mask]
+        for threshold in thresholds[:-1]:  # Exclude the last point
+            mask_linear = voltage <= threshold
+            mask_exp = voltage > threshold
 
-            if len(linear_voltages) < 2:
+            # Calculate the percentage of points in each region
+            percent_linear = sum(mask_linear) / total_points * 100
+            percent_exp = sum(mask_exp) / total_points * 100
+
+            # Continue if either region has too few points (e.g., less than 10% of total points)
+            if percent_linear < 25 or percent_exp < 10:
                 continue
 
-            # Linear fit (using numpy for efficiency)
-            A = np.vstack([linear_voltages, np.ones(len(linear_voltages))]).T
-            linear_fit_params = np.linalg.lstsq(A, linear_currents, rcond=None)[0]
-            linear_fit_residuals = linear_currents - (linear_fit_params[0] * linear_voltages + linear_fit_params[1])
-            R2_linear = 1 - np.var(linear_fit_residuals) / np.var(linear_currents)
+            # The scoring could be refined to consider the quality of fit, but for now, we use the sum of percentages
+            current_score = percent_linear + percent_exp
+            if current_score > best_R2:
+                best_R2 = current_score
+                best_threshold = threshold
 
-            if R2_linear > best_R2_linear and R2_linear < 0.975:
-                best_R2_linear = R2_linear
-                best_threshold_linear = threshold_linear
-
-            exp_mask = voltage > threshold_linear
-            exp_voltages = voltage[exp_mask]
-            exp_currents = current[exp_mask]
-            log_exp_currents = log_current[exp_mask]
-
-            if len(exp_voltages) < 2:
-                continue
-
-            try:
-                exp_fit_params, _ = curve_fit(lambda x, a, b: a * np.exp(b * x), exp_voltages, exp_currents, maxfev=10000)
-                exp_fit_residuals = log_exp_currents - np.log(exp_fit_params[0] * np.exp(exp_fit_params[1] * exp_voltages))
-                R2_exp = 1 - np.var(exp_fit_residuals) / np.var(log_exp_currents)
-            except RuntimeError:
-                continue
-
-            if R2_exp > best_R2_exp and R2_exp < 1:
-                best_R2_exp = R2_exp
-                best_threshold_exp = threshold_linear
-
-        return best_threshold_linear, best_threshold_exp
-
+        return best_threshold
 
     def load_folder(self):
-        global folder_path
-        folder_path = filedialog.askdirectory(title="Select Folder Containing CSV Files")
-        if not folder_path:
-            return
+            folder_path = filedialog.askdirectory(title="Select Folder Containing CSV Files")
+            if not folder_path:
+                return
 
-        for widget in self.frame.winfo_children():
-            if widget not in [self.load_button, self.plot_button]:
+            for widget in self.frame.winfo_children():
                 widget.destroy()
 
-        self.csv_files = {}
-        files = [file for file in os.listdir(folder_path) if file.endswith('.csv')]
+            self.load_button = ttk.Button(self.frame, text="Load Folder", command=self.load_folder)
+            self.load_button.pack(pady=5)
 
-        if not files:
-            messagebox.showinfo("No CSV Files", "No CSV files found in the selected folder.")
-            return
+            self.csv_files = {}
+            files = [file for file in os.listdir(folder_path) if file.endswith('.csv')]
+            if not files:
+                messagebox.showinfo("No CSV Files", "No CSV files found in the selected folder.")
+                return
 
-        self.plot_button['state'] = 'normal'
-        for file in files:
-            self.csv_files[file] = tk.BooleanVar()
-            chk = ttk.Checkbutton(self.frame, text=file, variable=self.csv_files[file])
-            chk.pack(anchor='w')
+            for file in files:
+                self.csv_files[file] = tk.BooleanVar()
+                chk = ttk.Checkbutton(self.frame, text=file, variable=self.csv_files[file])
+                chk.pack(anchor='w')
 
-        # Additional UI elements for error bars and fitting lines
-        self.error_bar_var = tk.BooleanVar()
-        self.error_bar_chk = ttk.Checkbutton(self.frame, text="Add Error Bars", variable=self.error_bar_var)
-        self.error_bar_chk.pack(pady=5)
+            self.plot_button = ttk.Button(self.frame, text="Plot Selected", command=lambda: self.plot_selected(folder_path))
+            self.plot_button.pack(pady=5)
 
-        self.fit_lines_var = tk.BooleanVar()
-        self.fit_lines_chk = ttk.Checkbutton(self.frame, text="Fit Linear and Exponential Regions", variable=self.fit_lines_var)
-        self.fit_lines_chk.pack(pady=5)
+            # Additional UI elements for manual threshold and initial guess values
+            self.manual_threshold_var = tk.DoubleVar()
+            self.manual_threshold_entry = ttk.Entry(self.frame, textvariable=self.manual_threshold_var)
+            self.manual_threshold_entry.pack(pady=5)
+            self.manual_threshold_label = ttk.Label(self.frame, text="Manual Threshold Voltage (kV):")
+            self.manual_threshold_label.pack(pady=5)
 
-    def plot_selected(self):
+            self.initial_guess_a_var = tk.DoubleVar(value=1.0)
+            self.initial_guess_b_var = tk.DoubleVar(value=0.1)
+            self.initial_guess_c_var = tk.DoubleVar(value=0.0)
+            self.initial_guess_entries = {
+                'a': ttk.Entry(self.frame, textvariable=self.initial_guess_a_var),
+                'b': ttk.Entry(self.frame, textvariable=self.initial_guess_b_var),
+                'c': ttk.Entry(self.frame, textvariable=self.initial_guess_c_var)
+            }
+            for param, entry in self.initial_guess_entries.items():
+                entry.pack(pady=2)
+                label = ttk.Label(self.frame, text=f"Initial Guess {param}:")
+                label.pack(pady=2)
+
+            # Re-adding checkboxes for additional options after folder is selected
+            self.error_bar_var = tk.BooleanVar()
+            self.error_bar_chk = ttk.Checkbutton(self.frame, text="Add Error Bars", variable=self.error_bar_var)
+            self.error_bar_chk.pack(pady=5)
+
+            self.fit_lines_var = tk.BooleanVar()
+            self.fit_lines_chk = ttk.Checkbutton(self.frame, text="Fit Linear and Exponential Regions", variable=self.fit_lines_var)
+            self.fit_lines_chk.pack(pady=5)
+
+    def plot_selected(self, folder_path):
         selected_files = [file for file, var in self.csv_files.items() if var.get()]
         if not selected_files:
             messagebox.showwarning("No Selection", "No files selected for plotting.")
             return
-        
+
         plt.figure(figsize=(10, 8))
+        manual_threshold = self.manual_threshold_var.get()
+        initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.manual_threshold_var.get()]
 
         for file in selected_files:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
 
+            sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
+
             if self.fit_lines_var.get():
-                threshold_linear, threshold_exp = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
-                if threshold_linear is not None and threshold_exp is not None:
-                    # Fit linear part
-                    linear_data = data[data['Voltage/kV'] <= threshold_linear]
-                    linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
-                    linear_fit_func = np.poly1d(linear_fit_params)
-                    
-                    # Plot linear fit
-                    linear_x_vals = np.linspace(data['Voltage/kV'].min(), threshold_linear, 100)
-                    plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}', linestyle="--")
-
-                    # Fit exponential part
-                    exp_data = data[data['Voltage/kV'] > threshold_exp]  # Use threshold_exp for the exponential region
-                    try:
-                        exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=[1.0, 1.0, threshold_exp])
-                    except RuntimeError:
-                        continue  # Skip if fit fails
-
-                    # Plot exponential fit
-                    exp_x_vals = np.linspace(threshold_exp - 1, data['Voltage/kV'].max(), 100)
-                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params), label=f'exponential Fit: y={exp_fit_params[0]:.2f}exp({exp_fit_params[1]:.2f}(x-{threshold_exp:.2f}))', linestyle="--")
-
-
-                    # Plot original data points
-                    sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
-                    
+                if manual_threshold > 0:
+                    threshold = manual_threshold
                 else:
-                    messagebox.showwarning("Fit Error", "Could not determine fitting thresholds.")
-                    return
-            elif self.error_bar_var.get():
-                # Your error bar plotting logic here
-                pass
-            else:
-                # Plot without fitting or error bars
-                sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
+                    threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
+                if threshold is not None:
+                    # Linear fit
+                    linear_data = data[data['Voltage/kV'] <= threshold]
+                    if len(linear_data) > 1:
+                        linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
+                        linear_fit_func = np.poly1d(linear_fit_params)
+                        linear_x_vals = np.linspace(data['Voltage/kV'].min(), threshold, 100)
+                        label_linear_fit = f'Linear Fit: $y = {linear_fit_params[0]:.2f}x + {linear_fit_params[1]:.2f}$'
+                        plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), linestyle="--", label=label_linear_fit)
+
+                    # Exponential fit
+                    exp_data = data[data['Voltage/kV'] > threshold]
+                    if len(exp_data) > 1:
+                        try:
+                            exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=[50.0, 10.0, threshold], maxfev = 10000)
+                            exp_x_vals = np.linspace(threshold, data['Voltage/kV'].max(), 100)
+                            label_exp_fit = f'Exp Fit: $y = {exp_fit_params[0]:.2f} \cdot e^{{{exp_fit_params[1]:.2f}(x-{exp_fit_params[2]:.2f})}}$'
+                            plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params), linestyle="--", label=label_exp_fit)
+                        except RuntimeError as e:
+                            messagebox.showwarning("Fit Error", f"Exponential fit failed for {file}: {e}")
+
+            # Placeholder for error bars functionality
+            if self.error_bar_var.get():
+                pass  # Implement error bar logic here
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
