@@ -142,34 +142,33 @@ class CSVPlotterApp:
             data = pd.read_csv(data_path)
 
             if self.fit_lines_var.get():
-                threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
-                if threshold is not None:
+                threshold_linear, threshold_exp = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
+                if threshold_linear is not None and threshold_exp is not None:
                     # Fit linear part
-                    linear_data = data[data['Voltage/kV'] <= threshold]
+                    linear_data = data[data['Voltage/kV'] <= threshold_linear]
                     linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
                     linear_fit_func = np.poly1d(linear_fit_params)
                     
                     # Plot linear fit
-                    linear_x_vals = np.linspace(data['Voltage/kV'].min(), threshold, 100)
+                    linear_x_vals = np.linspace(data['Voltage/kV'].min(), threshold_linear, 100)
                     plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), label=f'Linear Fit: y={linear_fit_params[0]:.2f}x+{linear_fit_params[1]:.2f}', linestyle="--")
 
                     # Fit exponential part
-                    exp_data = data[data['Voltage/kV'] > threshold]
+                    exp_data = data[data['Voltage/kV'] > threshold_exp]  # Use threshold_exp for the exponential region
                     try:
-                        c_fixed = threshold
-                        exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, c_fixed), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                        exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
                     except RuntimeError:
                         continue  # Skip if fit fails
 
                     # Plot exponential fit
-                    exp_x_vals = np.linspace(threshold, data['Voltage/kV'].max(), 100)
-                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params, c_fixed), label='Exponential Fit', linestyle="--")
+                    exp_x_vals = np.linspace(threshold_exp, data['Voltage/kV'].max(), 100)
+                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params, threshold_exp), label='Exponential Fit', linestyle="--")
 
                     # Plot original data points
                     sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
                     
                 else:
-                    messagebox.showwarning("Fit Error", "Could not determine a fitting threshold.")
+                    messagebox.showwarning("Fit Error", "Could not determine fitting thresholds.")
                     return
             elif self.error_bar_var.get():
                 # Your error bar plotting logic here
@@ -183,6 +182,7 @@ class CSVPlotterApp:
         plt.title('Voltage vs. Current')
         plt.legend()
         plt.show()
+
 
 
 if __name__ == "__main__":
