@@ -37,7 +37,7 @@ class CSVPlotterApp:
     
     def find_best_threshold(self, data):
         # Placeholder values for best error and threshold
-        best_error = float('inf')
+        best_R2 = float('inf')
         best_threshold = None
 
         # Try thresholds in the voltage range
