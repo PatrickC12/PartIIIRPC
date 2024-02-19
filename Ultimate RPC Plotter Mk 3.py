@@ -66,14 +66,18 @@ class CSVPlotterApp:
                 # Fit failed
                 continue
 
-            # Calculate combined error (sum of squared residuals)
-            linear_resid = linear_data['Current/uA'] - linear_fit_func(linear_data['Voltage/kV'])
-            exp_resid = exp_data['Current/uA'] - exp_func(exp_data['Voltage/kV'], *exp_fit_params)
-            total_error = np.sum(linear_resid**2) + np.sum(exp_resid**2)
+            #Calculate R2
 
-            if total_error < best_error:
-                best_error = total_error
-                best_threshold = threshold
+            diff = linear_data['Voltage/kV']-linear_data['Voltage/kV'].mean()
+            square_diff = diff**2
+            SST = np.sum(square_diff)
+
+            R2 = 1 - SSE/SST
+
+            if R2 < 0.99:
+                    if R2 > best_R2:
+                        best_R2 = R2
+                        best_threshold = threshold
 
         return best_threshold
 
