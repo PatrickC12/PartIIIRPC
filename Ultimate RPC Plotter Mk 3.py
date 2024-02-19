@@ -36,10 +36,10 @@ class CSVPlotterApp:
         self.plot_button.pack(pady=5)
     
     def find_best_threshold(self, data):
-        best_R2_linear = -float('inf')
-        best_R2_exp = -float('inf')
-        best_threshold_linear = None
-        best_threshold_exp = None
+        best_R2_linear = -0
+        best_R2_exp = -0
+        best_threshold_linear = 0
+        best_threshold_exp = 0
 
         # Define a range of potential thresholds
         thresholds = np.linspace(data['Voltage/kV'].min(), data['Voltage/kV'].max(), 100)
@@ -71,7 +71,7 @@ class CSVPlotterApp:
 
                 # Exponential fit and R^2 calculation
                 try:
-                    exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                    exp_fit_params, _= curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
                     exp_resid = np.log(exp_data['Current/uA']) - np.log(exp_func(exp_data['Voltage/kV'], *exp_fit_params, threshold_exp))
                     SSE_exp = np.sum(exp_resid**2)
                     SST_exp = np.sum((np.log(exp_data['Current/uA']) - np.log(exp_data['Current/uA']).mean())**2)
