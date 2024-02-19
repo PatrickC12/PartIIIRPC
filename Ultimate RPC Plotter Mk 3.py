@@ -58,7 +58,7 @@ class CSVPlotterApp:
             SST_linear = np.sum((linear_data['Current/uA'] - linear_data['Current/uA'].mean())**2)
             R2_linear = 1 - SSE_linear/SST_linear
 
-            if R2_linear > best_R2_linear:
+            if R2_linear > best_R2_linear and R2_linear < 0.99:
                 best_R2_linear = R2_linear
                 best_threshold_linear = threshold_linear
 
