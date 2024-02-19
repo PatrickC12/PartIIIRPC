@@ -124,6 +124,7 @@ class CSVPlotterApp:
         for file in selected_files:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
+            data = data[data['Current/uA'] > 0]
 
             sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
 
