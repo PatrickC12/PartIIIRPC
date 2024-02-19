@@ -56,7 +56,7 @@ class CSVPlotterApp:
             linear_fit_residuals = linear_currents - (linear_fit_params[0] * linear_voltages + linear_fit_params[1])
             R2_linear = 1 - np.var(linear_fit_residuals) / np.var(linear_currents)
 
-            if R2_linear > best_R2_linear and R2_linear < 0.98:
+            if R2_linear > best_R2_linear and R2_linear < 0.975:
                 best_R2_linear = R2_linear
                 best_threshold_linear = threshold_linear
 
@@ -75,7 +75,7 @@ class CSVPlotterApp:
             except RuntimeError:
                 continue
 
-            if R2_exp > best_R2_exp and R2_exp < 0.90:
+            if R2_exp > best_R2_exp and R2_exp < 1:
                 best_R2_exp = R2_exp
                 best_threshold_exp = threshold_linear
 
@@ -141,13 +141,14 @@ class CSVPlotterApp:
                     # Fit exponential part
                     exp_data = data[data['Voltage/kV'] > threshold_exp]  # Use threshold_exp for the exponential region
                     try:
-                        exp_fit_params, _ = curve_fit(lambda x, a, b: exp_func(x, a, b, threshold_exp), exp_data['Voltage/kV'], exp_data['Current/uA'])
+                        exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=[1.0, 1.0, threshold_exp])
                     except RuntimeError:
                         continue  # Skip if fit fails
 
                     # Plot exponential fit
-                    exp_x_vals = np.linspace(threshold_exp, data['Voltage/kV'].max(), 100)
-                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params, threshold_exp), label='Exponential Fit', linestyle="--")
+                    exp_x_vals = np.linspace(threshold_exp - 1, data['Voltage/kV'].max(), 100)
+                    plt.plot(exp_x_vals, exp_func(exp_x_vals, *exp_fit_params), label=f'exponential Fit: y={exp_fit_params[0]:.2f}exp({exp_fit_params[1]:.2f}(x-{threshold_exp:.2f}))', linestyle="--")
+
 
                     # Plot original data points
                     sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
