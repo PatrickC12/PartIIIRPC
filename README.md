@@ -5,7 +5,7 @@ Todo:
 
 -Error in breakdown_voltage, is it really +/ 3.5 V ….
 
--Repeat scintillator coincidence w/ OR Logic enable as well. perhaps we already did this?? No, bloody DDoS (patrick)
+-Repeat scintillator coincidence w/ OR Logic enable as well. perhaps we already did this?? No, bloody DDoS
 
 -Compare current densities for mini and massive RPCs.
 
