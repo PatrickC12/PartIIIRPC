@@ -11,7 +11,7 @@ Todo:
 
 - Fix floating ground of Large RPC setup.
 
--̶ F̶l̶i̶p̶ p̶o̶l̶a̶r̶i̶t̶y̶ o̶f̶ v̶o̶l̶t̶a̶g̶e̶ (̶i̶f̶ p̶o̶s̶s̶i̶b̶l̶e̶?̶)̶
+- F̶l̶i̶p̶ p̶o̶l̶a̶r̶i̶t̶y̶ o̶f̶ v̶o̶l̶t̶a̶g̶e̶ (̶i̶f̶ p̶o̶s̶s̶i̶b̶l̶e̶?̶)̶
 
 - Why are we expecting an exponential fit...
 
