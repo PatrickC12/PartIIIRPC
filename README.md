@@ -20,3 +20,5 @@ Todo:
 -Check gradient of linear regions of plots. Should be consistent across plots. Linear resistance due to spacers (and edge) in RPC, as well as gas mixture.
 
 -Repeat measurement of N2 with larger RPC (flush for longer!)
+
+- Put a line @ 690 mV on SiPM count vs threshold to mark regime change
