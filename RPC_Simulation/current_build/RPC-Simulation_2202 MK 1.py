@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -78,7 +80,7 @@ class RPCSimulatorApp:
         self.calc_button = ttk.Button(self.frame, text="Calculate efficiencies", state='disabled', command=self.calc_efficiences)
         self.calc_button.pack(pady=5)
 
-        self.plot_button = ttk.Button(self.frame, text="Plot the RPC Setup", state='disabled', command=self.plot_stations)
+        self.plot_button = ttk.Button(self.frame, text="Plot the RPC Setup", command=self.plot_stations_3d)
         self.plot_button.pack(pady=5)
 
         self.view_log_button = ttk.Button(self.frame, text="View RPC Log", command=self.view_log)
@@ -88,6 +90,7 @@ class RPCSimulatorApp:
         self.rpc_combobox.pack(pady=5)
         self.remove_rpc_button = ttk.Button(self.frame, text="Remove RPC plate", command=self.remove_rpc)
         self.remove_rpc_button.pack(pady=5)
+        
 
 
         
@@ -119,7 +122,6 @@ class RPCSimulatorApp:
             self.rpc_combobox.current(0)  # Select the first item by default
         else:
             self.rpc_combobox.set('')
-
     # Method to update the RPC combobox list
     def update_rpc_combobox(self):
         rpc_descriptions = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
@@ -128,7 +130,6 @@ class RPCSimulatorApp:
             self.rpc_combobox.current(0)
         else:
             self.rpc_combobox.set('')
-
     # Method to remove the selected RPC
     def remove_rpc(self):
         selection_index = self.rpc_combobox.current()
@@ -247,9 +248,35 @@ class RPCSimulatorApp:
         # Close the RPC window
         rpc_window.destroy()
 
-    def plot_stations(self):
-        pass
+    def plot_stations_3d(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+            # Assuming the RPC plate is placed flat in the X-Y plane at height Z
+            vertices = np.array([[0, 0, z],
+                                [width, 0, z],
+                                [width, length, z],
+                                [0, length, z]])
+            
+            # Define the vertices of the rectangle
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            ax.add_collection3d(poly3d)
 
+        # Setting the labels for each axis
+        ax.set_xlabel('X (m)')
+        ax.set_ylabel('Y (m)')
+        ax.set_zlabel('Height (m)')
+        
+        # Auto-scaling the axes to fit all RPC plates
+        ax.auto_scale_xyz([0, max(rpc.dimensions[0] for rpc in self.rpc_list)], 
+                        [0, max(rpc.dimensions[1] for rpc in self.rpc_list)], 
+                        [0, max(rpc.height for rpc in self.rpc_list)])
+        
+        plt.show()
     def calc_efficiences(self):
         pass
 
