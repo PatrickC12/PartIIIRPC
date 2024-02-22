@@ -59,7 +59,7 @@ class RPCSimulatorApp:
 
         # Frame for RPC Input
         self.frame = ttk.Frame(master)
-        self.frame.pack(padx=10, pady=10)
+        self.frame.pack(padx=100, pady=100)
 
         # #Input how many RPC Plates you would like.
 
@@ -70,32 +70,63 @@ class RPCSimulatorApp:
         # self.Number_RPCs_label.pack(pady=5)
 
         # Button to start generating RPC list
-        self.load_button = ttk.Button(self.frame, text="Add RPC plate", command=self.create_rpc_window)
-        self.load_button.pack(pady=5)
-
-        # Array to store RPC objects
         self.rpc_list = []
 
-        # Button to calculate results, disabled initially
-        self.calc_button = ttk.Button(self.frame, text="Calculate efficiencies", state='disabled', command=self.calc_efficiences)
+        self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates", command=self.manage_rpc_window)
+        self.manage_rpc_button.pack(pady=5)
+
+        self.calc_button = ttk.Button(self.frame, text="Calculate Efficiencies", state='disabled', command=self.calc_efficiencies)
         self.calc_button.pack(pady=5)
 
         self.plot_button = ttk.Button(self.frame, text="Plot the RPC Setup", command=self.plot_stations_3d)
         self.plot_button.pack(pady=5)
 
-        self.view_log_button = ttk.Button(self.frame, text="View RPC Log", command=self.view_log)
-        self.view_log_button.pack(pady=5)
-        
-        self.rpc_combobox = ttk.Combobox(self.frame, state="readonly")
-        self.rpc_combobox.pack(pady=5)
-        self.remove_rpc_button = ttk.Button(self.frame, text="Remove RPC plate", command=self.remove_rpc)
-        self.remove_rpc_button.pack(pady=5)
-        
-
-
-        
+        self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
+        self.log_button.pack(pady=5)       
         #Calculate the track reconstruction efficiencies.
         #Hit reconstruction efficiencies. 
+    
+    def manage_rpc_window(self):
+        manage_window = tk.Toplevel(self.master)
+        manage_window.title("Manage RPC Plates")
+
+        self.add_rpc_button = ttk.Button(manage_window, text="Add RPC Plate", command=self.create_rpc_window)
+        self.add_rpc_button.pack(pady=5)
+
+        self.rpc_combobox = ttk.Combobox(manage_window, state="readonly")
+        self.rpc_combobox.pack(pady=5)
+        self.update_rpc_combobox()
+
+        self.remove_rpc_button = ttk.Button(manage_window, text="Remove RPC Plate", command=self.remove_rpc)
+        self.remove_rpc_button.pack(pady=5)
+
+    def log_rpc_window(self):
+        log_window = tk.Toplevel(self.master)
+        log_window.title("RPC Log Operations")
+
+        self.save_log_button = ttk.Button(log_window, text="Save RPC Setup", command=self.save_rpc_log)
+        self.save_log_button.pack(pady=5)
+
+        self.load_log_button = ttk.Button(log_window, text="Load RPC Setup", command=self.load_rpc_log)
+        self.load_log_button.pack(pady=5)
+
+    def save_rpc_log(self):
+        filepath = filedialog.asksaveasfilename(defaultextension="txt", filetypes=[("Text Files", "*.txt")])
+        if filepath:
+            with open(filepath, "w") as log_file:
+                for rpc in self.rpc_list:
+                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.efficiency},{rpc.gas_mixture}\n"
+                    log_file.write(log_entry)
+            messagebox.showinfo("Success", "RPC setup saved successfully.")
+
+    def load_rpc_log(self):
+        filepath = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if filepath:
+            with open(filepath, "r") as log_file:
+                self.rpc_list.clear()
+                for line in log_file:
+                    height, voltage, width, length, thickness, efficiency, gas_mixture = line.strip().split(',')
+                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
 
     #Allowing the entered RPC plates to be shown
     def show_entry(self, var, widget):
@@ -277,7 +308,7 @@ class RPCSimulatorApp:
                         [0, max(rpc.height for rpc in self.rpc_list)])
         
         plt.show()
-    def calc_efficiences(self):
+    def calc_efficiencies(self):
         pass
 
 
