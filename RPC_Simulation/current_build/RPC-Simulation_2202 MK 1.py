@@ -83,6 +83,11 @@ class RPCSimulatorApp:
 
         self.view_log_button = ttk.Button(self.frame, text="View RPC Log", command=self.view_log)
         self.view_log_button.pack(pady=5)
+        
+        self.rpc_combobox = ttk.Combobox(self.frame, state="readonly")
+        self.rpc_combobox.pack(pady=5)
+        self.remove_rpc_button = ttk.Button(self.frame, text="Remove RPC plate", command=self.remove_rpc)
+        self.remove_rpc_button.pack(pady=5)
 
 
         
@@ -108,19 +113,32 @@ class RPCSimulatorApp:
         save_button.pack(pady=5) 
     #Allowing the RPC plate list to be updated by modify the logging to include a unique identifier and update the dropdown menu
     def update_rpc_list(self):
-        self.rpc_combobox['values'] = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
-        if self.rpc_list:
+        rpc_descriptions = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
+        self.rpc_combobox['values'] = rpc_descriptions
+        if rpc_descriptions:
+            self.rpc_combobox.current(0)  # Select the first item by default
+        else:
+            self.rpc_combobox.set('')
+
+    # Method to update the RPC combobox list
+    def update_rpc_combobox(self):
+        rpc_descriptions = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
+        self.rpc_combobox['values'] = rpc_descriptions
+        if rpc_descriptions:
             self.rpc_combobox.current(0)
-    #Allowing RPC plates to be removed
+        else:
+            self.rpc_combobox.set('')
+
+    # Method to remove the selected RPC
     def remove_rpc(self):
-        current_selection = self.rpc_combobox.current()
-        if current_selection >= 0:  # Ensure there is a selection
-            removed_rpc = self.rpc_list.pop(current_selection)
-            self.update_rpc_list()  # Update the dropdown list
-            # Optionally, log the removal
-            with open("rpc_log.txt", "a") as log_file:
-                log_file.write(f"Removed RPC Plate - Height: {removed_rpc.height}m, Dimensions: {removed_rpc.dimensions}m\n")
-    #Allowing RPC attributes to be created using combobox
+        selection_index = self.rpc_combobox.current()
+        if selection_index >= 0:  # A selection is made
+            self.rpc_list.pop(selection_index)
+            self.update_rpc_combobox()  # Update combobox after removal
+
+            
+        #Allowing RPC attributes to be created using combobox
+    
     def create_rpc_attributes_ui(self, rpc_window):
 
 
@@ -161,8 +179,9 @@ class RPCSimulatorApp:
         
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
-        self.selected_gases = {}
+        self.selected_gases = {gas: (tk.BooleanVar(), tk.DoubleVar()) for gas in self.gases}
         self.gas_percentage = {}
+        
 
         for gas in self.gases:
 
@@ -214,7 +233,7 @@ class RPCSimulatorApp:
         voltage = float(self.voltage_var.get())
         dimensions = [float(self.x_var.get()), float(self.y_var.get()),float(self.y_var.get())]
         efficiency = float(self.efficiency_var.get())
-        gas_mixture = [gas for gas, var in self.selected_gases.items() if var.get()]
+        gas_mixture = {gas: percentage.get() for gas, (selected, percentage) in self.selected_gases.items() if selected.get()}
         new_rpc = RPC(height=height,efficiency=efficiency,
                         dimensions=dimensions,voltage=voltage,gas_mixture=gas_mixture)
         
@@ -222,6 +241,8 @@ class RPCSimulatorApp:
         
         # Add RPC object to the array
         self.rpc_list.append(new_rpc)
+        
+        self.update_rpc_combobox()
 
         # Close the RPC window
         rpc_window.destroy()
@@ -235,6 +256,8 @@ class RPCSimulatorApp:
 
 
 if __name__ == "__main__":
+    with open("rpc_log.txt", 'w') as log_file:
+        log_file.write('')
     root = tk.Tk()
     app = RPCSimulatorApp(root)
     root.mainloop()
