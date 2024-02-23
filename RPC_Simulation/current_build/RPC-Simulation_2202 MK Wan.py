@@ -320,7 +320,7 @@ class RPCSimulatorApp:
         # Number of muons
         self.num_muons_label = ttk.Label(simulation_window, text="Number of muons/ns:")
         self.num_muons_label.pack(pady=5)
-        self.num_muons_var = tk.IntVar()
+        self.num_muons_var = tk.DoubleVar()
         self.num_muons_entry = ttk.Entry(simulation_window, textvariable=self.num_muons_var)
         self.num_muons_entry.pack(pady=5)
 
