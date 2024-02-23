@@ -346,7 +346,7 @@ class RPCSimulatorApp:
             if np.random.uniform(0, 1) < muons_per_ns:
                 x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
                 y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
-                z_pos = max(rpc.height for rpc in self.rpc_list) + 30
+                z_pos = max(rpc.height for rpc in self.rpc_list) + 5
 
                 # Check for detection by each RPC plate
                 for rpc in self.rpc_list:
