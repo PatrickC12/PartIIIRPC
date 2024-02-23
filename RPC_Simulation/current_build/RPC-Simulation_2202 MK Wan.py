@@ -351,7 +351,7 @@ class RPCSimulatorApp:
         self.adv_settings_button.pack(pady=5)
 
         # Start simulation button
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation)
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_Peter)
         self.start_sim_button.pack(pady=5)
         
     def open_advanced_settings(self):
@@ -362,42 +362,76 @@ class RPCSimulatorApp:
         self.use_strips_var = tk.BooleanVar()
         self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
         self.use_strips_check.pack(pady=5)
+        
+        self.Muon_angular_dist_var = tk.BooleanVar()
+        self.Muon_angular_dist_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.Muon_angular_dist_var, command=self.toggle_muon_angular_dist)
+        self.Muon_angular_dist_check.pack(pady=5)
 
     def toggle_strips(self):
         togglestrip = self.use_strips_var.get()
         
+    def toggle_muon_angular_dist(self):
+        toggleangular = self.Muon_angular_dist_var.get()
         
-    def start_simulation(self):
-        muons_per_ns = self.num_muons_var.get()
-        sim_time = self.sim_time_var.get()
-        muon_speed = 0.98
-        speed_of_light = 0.299792458 # m/ns
-        detected_muons = [] # List to store detected muon data
-
         
-        for ns in range(int(sim_time)):
-            if np.random.uniform(0, 1) < muons_per_ns:
-                x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
-                y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
-                z_pos = max(rpc.height for rpc in self.rpc_list) + 5
 
-                # Check for detection by each RPC plate
-                for rpc in self.rpc_list:
-                    if rpc.height < z_pos and rpc.height + rpc.dimensions[2]/1000 >= z_pos - muon_speed * speed_of_light * ns:
-                        if np.random.uniform(0, 1) <= rpc.efficiency:
-                            detection_time = ns
-                            detected_muons.append({
-                                "x_position": x_pos,
-                                "y_position": y_pos,
-                                "z_position_at_detection": rpc.height,
-                                "detection_time_ns": detection_time,
-                                "starting_z_position": z_pos,
-                                "initial_velocity": muon_speed * speed_of_light
-                            })
+    def start_simulation_Peter(self):
+        muons_per_ns = self.num_muons_var.get()  # Expected number of muons per ns
+        total_sim_time = self.sim_time_var.get()  # Total simulation time in ns
+        muon_speed = 0.98  # Fraction of the speed of light
+        speed_of_light = 0.299792458  # Speed of light in m/ns
+        detected_muons = []  # List to store detected muon data
+        sim_time = 0  # Initialize simulation time
 
+        while sim_time < total_sim_time:
+            # Determine the time to the next muon using the inverse transform sampling method
+            time_to_next_muon = -np.log(np.random.uniform()) / muons_per_ns
+            sim_time += time_to_next_muon
+            
+            if sim_time > total_sim_time:
+                break  # Stop the simulation if we've exceeded the total simulation time
+            
+            # At this point, a muon is generated. Proceed with the rest of the simulation.
+            theta = np.arccos(np.sqrt(np.random.uniform()))  # Generate angle theta
+            phi = np.random.uniform(0, 2 * np.pi)  # Generate angle phi
+            
+            # Calculate velocity components
+            speed = speed_of_light * muon_speed
+            vx = speed * np.sin(theta) * np.cos(phi)
+            vy = speed * np.sin(theta) * np.sin(phi)
+            vz = -speed * np.cos(theta)
+            
+            # Generate initial position
+            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
+            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
+            z_pos = max(rpc.height for rpc in self.rpc_list)  # Start just above the highest RPC
+            
+            # Check each RPC for detection
+            for rpc in self.rpc_list:
+                time_to_rpc = (rpc.height - z_pos) / vz if vz != 0 else float('inf')
+                
+                if 0 <= time_to_rpc + sim_time <= total_sim_time:
+                    # Calculate the position at which the muon would intersect the plane of the RPC
+                    x_detect = x_pos + vx * time_to_rpc
+                    y_detect = y_pos + vy * time_to_rpc
+                    
+                    # Check if the muon is within the bounds of the RPC and if it's detected based on the RPC's efficiency
+                    if 0 <= x_detect <= rpc.dimensions[0] and 0 <= y_detect <= rpc.dimensions[1] and np.random.uniform(0, 1) <= rpc.efficiency:
+                        detected_muons.append({
+                            "x_position": x_detect,
+                            "y_position": y_detect,
+                            "z_position_at_detection": rpc.height,
+                            "detection_time_ns": sim_time + time_to_rpc,
+                            "starting_z_position": z_pos,
+                            "initial_velocity": speed,
+                            "theta": theta,
+                            "phi": phi
+                        })
+
+        # Convert detected muons to DataFrame and finish the simulation
         df_detected_muons = pd.DataFrame(detected_muons)
-
         self.simulation_finished_dialog(df_detected_muons)
+
 ###################################################################################################################
 #Simulation result section
 ###################################################################################################################
@@ -443,38 +477,49 @@ class RPCSimulatorApp:
             df.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
             
+
     def play_video(self, df):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         
         # Initialize empty arrays to store accumulated positions
         x_accumulated, y_accumulated, z_accumulated = [], [], []
-
+        
         # Set up plot limits based on the data
         ax.set_xlim(df['x_position'].min(), df['x_position'].max())
         ax.set_ylim(df['y_position'].min(), df['y_position'].max())
         ax.set_zlim(df['z_position_at_detection'].min(), df['z_position_at_detection'].max())
-
+        
         scat = ax.scatter(x_accumulated, y_accumulated, z_accumulated)
-
-        def animate(i):
-            # Get data for the current frame
-            current_data = df[df['detection_time_ns'] == i]
+        
+        # Normalize detection times to a sequence of frames
+        # Find the smallest time difference to use as a frame step
+        time_steps = np.sort(df['detection_time_ns'].unique())
+        min_time_step = np.min(np.diff(time_steps))
+        # Normalize times to an integer frame index
+        df['frame'] = ((df['detection_time_ns'] - df['detection_time_ns'].min()) / min_time_step).astype(int)
+        
+        def animate(frame):
+            # Filter data for the current frame
+            current_data = df[df['frame'] == frame]
             x_current = current_data['x_position'].values
             y_current = current_data['y_position'].values
             z_current = current_data['z_position_at_detection'].values
-
+            
             # Accumulate the positions
             x_accumulated.extend(x_current)
             y_accumulated.extend(y_current)
             z_accumulated.extend(z_current)
-
+            
             # Update scatter plot data
             scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
             return scat,
-
-        ani = FuncAnimation(fig, animate, frames=len(df['detection_time_ns'].unique()), interval=100)
-
+        
+        # Determine the number of frames for the animation
+        frames = df['frame'].max() + 1
+        
+        ani = FuncAnimation(fig, animate, frames=frames, interval=self.sim_time_var.get() / 10)
+        
         plt.show()
         
     def calc_efficiencies(self):
