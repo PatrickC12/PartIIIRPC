@@ -103,7 +103,7 @@ class RPCSimulatorApp:
         self.add_rpc_button.pack(pady=5)
 
         self.rpc_combobox = ttk.Combobox(manage_window, state="readonly")
-        self.rpc_combobox.pack(padx=80)
+        self.rpc_combobox.pack(padx=80, pady=100)
         self.update_rpc_combobox()
 
         self.remove_rpc_button = ttk.Button(manage_window, text="Remove RPC Plate", command=self.remove_rpc)
@@ -331,37 +331,42 @@ class RPCSimulatorApp:
     def run_simulation_window(self):
         simulation_window = tk.Toplevel(self.master)
         simulation_window.title("Simulation Settings")
-        
-        self.simple_simulation_button = ttk.Button(simulation_window, text = 'Simp Simulation', command=self.simp_sim)
-        self.simple_simulation_button.pack(pady=5)
-        
-        
 
-        
-    def simp_sim(self):
-        
-        simp_simulation_window = tk.Toplevel(self.master)
-        simp_simulation_window.title("Simulation Settings")
-        
         # Number of muons
-        self.num_muons_label = ttk.Label(simp_simulation_window, text="Number of muons/ns:")
+        self.num_muons_label = ttk.Label(simulation_window, text="Number of muons/ns:")
         self.num_muons_label.pack(pady=5)
         self.num_muons_var = tk.DoubleVar()
-        self.num_muons_entry = ttk.Entry(simp_simulation_window, textvariable=self.num_muons_var)
+        self.num_muons_entry = ttk.Entry(simulation_window, textvariable=self.num_muons_var)
         self.num_muons_entry.pack(pady=5)
 
         # Simulation time in ns
-        self.sim_time_label = ttk.Label(simp_simulation_window, text="Simulation time (ns):")
+        self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (ns):")
         self.sim_time_label.pack(pady=5)
         self.sim_time_var = tk.DoubleVar()
-        self.sim_time_entry = ttk.Entry(simp_simulation_window, textvariable=self.sim_time_var)
+        self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
         self.sim_time_entry.pack(pady=5)
+        
+        # Advanced settings button
+        self.adv_settings_button = ttk.Button(simulation_window, text="Advanced Settings", command=self.open_advanced_settings)
+        self.adv_settings_button.pack(pady=5)
 
         # Start simulation button
-        self.start_sim_button = ttk.Button(simp_simulation_window, text="Start Simulation", command=self.start_simulation)
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation)
         self.start_sim_button.pack(pady=5)
         
+    def open_advanced_settings(self):
+        advanced_window = tk.Toplevel(self.master)
+        advanced_window.title("Advanced Settings")
 
+        # Checkbox for using strips
+        self.use_strips_var = tk.BooleanVar()
+        self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
+        self.use_strips_check.pack(pady=5)
+
+    def toggle_strips(self):
+        togglestrip = self.use_strips_var.get()
+        
+        
     def start_simulation(self):
         muons_per_ns = self.num_muons_var.get()
         sim_time = self.sim_time_var.get()
@@ -369,6 +374,7 @@ class RPCSimulatorApp:
         speed_of_light = 0.299792458 # m/ns
         detected_muons = [] # List to store detected muon data
 
+        
         for ns in range(int(sim_time)):
             if np.random.uniform(0, 1) < muons_per_ns:
                 x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
