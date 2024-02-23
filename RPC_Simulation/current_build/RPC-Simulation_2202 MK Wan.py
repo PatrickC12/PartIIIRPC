@@ -15,7 +15,9 @@ import seaborn as sns
 import os
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d import Axes3D
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -57,9 +59,8 @@ class RPCSimulatorApp:
         self.master = master
         master.title("RPC Tracking station simulation")
 
-        # Frame for RPC Input
         self.frame = ttk.Frame(master)
-        self.frame.pack(padx=100, pady=100)
+        self.frame.pack(padx=150, pady=200)
 
         # #Input how many RPC Plates you would like.
 
@@ -78,9 +79,6 @@ class RPCSimulatorApp:
         self.calc_button = ttk.Button(self.frame, text="Calculate Efficiencies", state='disabled', command=self.calc_efficiencies)
         self.calc_button.pack(pady=5)
 
-        self.plot_button = ttk.Button(self.frame, text="Plot the RPC Setup", command=self.plot_stations_3d)
-        self.plot_button.pack(pady=5)
-
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
         self.log_button.pack(pady=5)
         
@@ -95,16 +93,22 @@ class RPCSimulatorApp:
     def manage_rpc_window(self):
         manage_window = tk.Toplevel(self.master)
         manage_window.title("Manage RPC Plates")
+        
+        self.frame = ttk.Frame(manage_window)
+        self.frame.pack(padx=150, pady=200)
 
         self.add_rpc_button = ttk.Button(manage_window, text="Add RPC Plate", command=self.create_rpc_window)
         self.add_rpc_button.pack(pady=5)
 
         self.rpc_combobox = ttk.Combobox(manage_window, state="readonly")
-        self.rpc_combobox.pack(pady=5)
+        self.rpc_combobox.pack(padx=80)
         self.update_rpc_combobox()
 
         self.remove_rpc_button = ttk.Button(manage_window, text="Remove RPC Plate", command=self.remove_rpc)
         self.remove_rpc_button.pack(pady=5)
+        
+        self.plot_button = ttk.Button(manage_window, text="Plot the RPC Setup", command=self.plot_stations_3d)
+        self.plot_button.pack(pady=5)
     
     def create_rpc_window(self):
         rpc_window = tk.Toplevel(self.master)
@@ -361,7 +365,9 @@ class RPCSimulatorApp:
         df_detected_muons = pd.DataFrame(detected_muons)
 
         self.simulation_finished_dialog(df_detected_muons)
-
+###################################################################################################################
+#Simulation result section
+###################################################################################################################
     def simulation_finished_dialog(self, df_detected_muons):
         dialog_window = tk.Toplevel(self.master)
         dialog_window.title("Simulation Finished")
@@ -377,6 +383,9 @@ class RPCSimulatorApp:
         # Button to save data into a CSV (redundant since data is already saved, but added for completeness)
         save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_detected_muons))
         save_data_button.pack(pady=5)
+        
+        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(df_detected_muons))
+        play_video_button.pack(pady=5)
         
     def view_data(self, df):
         if df.empty:
@@ -400,9 +409,43 @@ class RPCSimulatorApp:
         if filepath:
             df.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
-    
-    def calc_efficiencies(self):
-        pass
+            
+    def play_video(self, df):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        
+        # Initialize empty arrays to store accumulated positions
+        x_accumulated, y_accumulated, z_accumulated = [], [], []
+
+        # Set up plot limits based on the data
+        ax.set_xlim(df['x_position'].min(), df['x_position'].max())
+        ax.set_ylim(df['y_position'].min(), df['y_position'].max())
+        ax.set_zlim(df['z_position_at_detection'].min(), df['z_position_at_detection'].max())
+
+        scat = ax.scatter(x_accumulated, y_accumulated, z_accumulated)
+
+        def animate(i):
+            # Get data for the current frame
+            current_data = df[df['detection_time_ns'] == i]
+            x_current = current_data['x_position'].values
+            y_current = current_data['y_position'].values
+            z_current = current_data['z_position_at_detection'].values
+
+            # Accumulate the positions
+            x_accumulated.extend(x_current)
+            y_accumulated.extend(y_current)
+            z_accumulated.extend(z_current)
+
+            # Update scatter plot data
+            scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
+            return scat,
+
+        ani = FuncAnimation(fig, animate, frames=len(df['detection_time_ns'].unique()), interval=100)
+
+        plt.show()
+        
+    # def calc_efficiencies(self):
+    #     pass
 
 
 
