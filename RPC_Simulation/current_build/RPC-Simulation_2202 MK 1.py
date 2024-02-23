@@ -268,17 +268,18 @@ class RPCSimulatorApp:
                 for line in log_file:
                     height, voltage, width, length, thickness, efficiency, gas_mixture = line.strip().split(',')
                     rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
+                    self.rpc_list.append(rpc)
 ###################################################################################################################
 #3D plot section
 ################################################################################################################### 
-    def plot_stations_3d(self):
+    def plot_stations_3d(self, df=None):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         
         for rpc in self.rpc_list:
             z = rpc.height
             width, length, _ = rpc.dimensions
-            # Assuming the RPC plate is placed flat in the X-Y plane at height Z
+
             vertices = np.array([[0, 0, z],
                                 [width, 0, z],
                                 [width, length, z],
@@ -288,6 +289,10 @@ class RPCSimulatorApp:
             faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
             poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
             ax.add_collection3d(poly3d)
+        
+        if df is not None:
+            ax.scatter(df['x_position'], df['y_position'], df['z_position_at_detection'], color='red', marker='o', label='Detected Muons')
+            ax.legend()
 
         # Setting the labels for each axis
         ax.set_xlabel('X (m)')
@@ -341,12 +346,13 @@ class RPCSimulatorApp:
 
                 # Check for detection by each RPC plate
                 for rpc in self.rpc_list:
-                    if rpc.height < z_pos and rpc.height + rpc.dimensions[2]/1000 >= z_pos - muon_speed * speed_of_light:
+                    if rpc.height < z_pos and rpc.height + rpc.dimensions[2]/1000 >= z_pos - muon_speed * speed_of_light * ns:
                         if np.random.uniform(0, 1) <= rpc.efficiency:
                             detection_time = ns
                             detected_muons.append({
                                 "x_position": x_pos,
                                 "y_position": y_pos,
+                                "z_position_at_detection": rpc.height,
                                 "detection_time_ns": detection_time,
                                 "starting_z_position": z_pos,
                                 "initial_velocity": muon_speed * speed_of_light
@@ -373,6 +379,10 @@ class RPCSimulatorApp:
         save_data_button.pack(pady=5)
         
     def view_data(self, df):
+        if df.empty:
+            messagebox.showinfo("No Data", "No muons were detected during the simulation.")
+            return
+
         try:
             from pandastable import Table
             data_window = tk.Toplevel(self.master)
@@ -390,30 +400,6 @@ class RPCSimulatorApp:
         if filepath:
             df.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
-
-    def plot_stations_3d(self, df=None):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        
-        for rpc in self.rpc_list:
-            z = rpc.height
-            width, length, _ = rpc.dimensions
-            vertices = np.array([[0, 0, z], [width, 0, z], [width, length, z], [0, length, z]])
-            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-            ax.add_collection3d(poly3d)
-        
-        # Plot detected muons if DataFrame is provided
-        if df is not None:
-            ax.scatter(df['x_position'], df['y_position'], df['detection_time_ns'], color='red', marker='o', label='Detected Muons')
-            ax.legend()
-
-        ax.set_xlabel('X (m)')
-        ax.set_ylabel('Y (m)')
-        ax.set_zlabel('Height (m)')
-        ax.auto_scale_xyz([0, max(rpc.dimensions[0] for rpc in self.rpc_list)], [0, max(rpc.dimensions[1] for rpc in self.rpc_list)], [0, max(rpc.height for rpc in self.rpc_list)])
-        
-        plt.show()
     
     def calc_efficiencies(self):
         pass
