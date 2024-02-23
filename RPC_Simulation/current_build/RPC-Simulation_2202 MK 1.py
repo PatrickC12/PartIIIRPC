@@ -86,6 +86,9 @@ class RPCSimulatorApp:
         #Calculate the track reconstruction efficiencies.
         #Hit reconstruction efficiencies. 
     
+###################################################################################################################
+#RPC Management Section
+################################################################################################################### 
     def manage_rpc_window(self):
         manage_window = tk.Toplevel(self.master)
         manage_window.title("Manage RPC Plates")
@@ -99,43 +102,7 @@ class RPCSimulatorApp:
 
         self.remove_rpc_button = ttk.Button(manage_window, text="Remove RPC Plate", command=self.remove_rpc)
         self.remove_rpc_button.pack(pady=5)
-
-    def log_rpc_window(self):
-        log_window = tk.Toplevel(self.master)
-        log_window.title("RPC Log Operations")
-
-        self.save_log_button = ttk.Button(log_window, text="Save RPC Setup", command=self.save_rpc_log)
-        self.save_log_button.pack(pady=5)
-
-        self.load_log_button = ttk.Button(log_window, text="Load RPC Setup", command=self.load_rpc_log)
-        self.load_log_button.pack(pady=5)
-
-    def save_rpc_log(self):
-        filepath = filedialog.asksaveasfilename(defaultextension="txt", filetypes=[("Text Files", "*.txt")])
-        if filepath:
-            with open(filepath, "w") as log_file:
-                for rpc in self.rpc_list:
-                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.efficiency},{rpc.gas_mixture}\n"
-                    log_file.write(log_entry)
-            messagebox.showinfo("Success", "RPC setup saved successfully.")
-
-    def load_rpc_log(self):
-        filepath = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
-        if filepath:
-            with open(filepath, "r") as log_file:
-                self.rpc_list.clear()
-                for line in log_file:
-                    height, voltage, width, length, thickness, efficiency, gas_mixture = line.strip().split(',')
-                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
-
-    #Allowing the entered RPC plates to be shown
-    def show_entry(self, var, widget):
-        #Decide whether or not to enable a widget passed on a user checkbox
-        if var.get():
-            widget.configure(state='normal')
-        else:
-            widget.configure(state='disabled')
-    #Allowing new RPC plates to be created
+    
     def create_rpc_window(self):
         rpc_window = tk.Toplevel(self.master)
         rpc_window.title("Add RPC Plate")
@@ -144,8 +111,21 @@ class RPCSimulatorApp:
         self.create_rpc_attributes_ui(rpc_window)
 
         save_button = ttk.Button(rpc_window, text="Save RPC", command=lambda: self.save_rpc(rpc_window))
-        save_button.pack(pady=5) 
-    #Allowing the RPC plate list to be updated by modify the logging to include a unique identifier and update the dropdown menu
+        save_button.pack(pady=5)
+    
+    def remove_rpc(self):
+        selection_index = self.rpc_combobox.current()
+        if selection_index >= 0:  # A selection is made
+            self.rpc_list.pop(selection_index)
+            self.update_rpc_combobox()  # Update combobox after removal
+#Could have done the create_rpc_attributes_ui Better tbh
+    def show_entry(self, var, widget):
+        #Decide whether or not to enable a widget passed on a user checkbox
+        if var.get():
+            widget.configure(state='normal')
+        else:
+            widget.configure(state='disabled')
+
     def update_rpc_list(self):
         rpc_descriptions = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
         self.rpc_combobox['values'] = rpc_descriptions
@@ -153,7 +133,7 @@ class RPCSimulatorApp:
             self.rpc_combobox.current(0)  # Select the first item by default
         else:
             self.rpc_combobox.set('')
-    # Method to update the RPC combobox list
+
     def update_rpc_combobox(self):
         rpc_descriptions = [f"RPC {idx+1}: Height={rpc.height}m, Dimensions={rpc.dimensions}m" for idx, rpc in enumerate(self.rpc_list)]
         self.rpc_combobox['values'] = rpc_descriptions
@@ -161,15 +141,6 @@ class RPCSimulatorApp:
             self.rpc_combobox.current(0)
         else:
             self.rpc_combobox.set('')
-    # Method to remove the selected RPC
-    def remove_rpc(self):
-        selection_index = self.rpc_combobox.current()
-        if selection_index >= 0:  # A selection is made
-            self.rpc_list.pop(selection_index)
-            self.update_rpc_combobox()  # Update combobox after removal
-
-            
-        #Allowing RPC attributes to be created using combobox
     
     def create_rpc_attributes_ui(self, rpc_window):
 
@@ -243,20 +214,10 @@ class RPCSimulatorApp:
         self.efficiency_var_entry = ttk.Entry(rpc_window, textvariable=self.efficiency_var)
         self.efficiency_var_entry.pack(pady=5)
     
-    #Logging Features for storing
-    def log_rpc(self, rpc):
-        with open("rpc_log.txt", "a") as log_file:
-            log_entry = f"RPC Plate - Height: {rpc.height}m, Voltage: {rpc.voltage}kV, Dimensions: {rpc.dimensions}m, Efficiency: {rpc.efficiency}, Gas Mixture: {rpc.gas_mixture}\n"
-            log_file.write(log_entry)
-    #Allow you to view the log by reading the logged content
-    def view_log(self):
-            try:
-                with open("rpc_log.txt", "r") as log_file:
-                    log_content = log_file.read()
-                messagebox.showinfo("RPC Log", log_content)
-            except FileNotFoundError:
-                messagebox.showerror("Error", "Log file not found.")
-    
+###################################################################################################################
+#Data Logging section
+################################################################################################################### 
+#save_rpc function saves the rpc configuration temporarily in combobox
     def save_rpc(self, rpc_window):
 
         # Get user inputs and create RPC object
@@ -269,8 +230,6 @@ class RPCSimulatorApp:
         new_rpc = RPC(height=height,efficiency=efficiency,
                         dimensions=dimensions,voltage=voltage,gas_mixture=gas_mixture)
         
-        self.log_rpc(new_rpc)
-        
         # Add RPC object to the array
         self.rpc_list.append(new_rpc)
         
@@ -279,6 +238,36 @@ class RPCSimulatorApp:
         # Close the RPC window
         rpc_window.destroy()
 
+    def log_rpc_window(self):
+        log_window = tk.Toplevel(self.master)
+        log_window.title("RPC Log Operations")
+
+        self.save_log_button = ttk.Button(log_window, text="Save RPC Setup", command=self.save_rpc_log)
+        self.save_log_button.pack(pady=5)
+
+        self.load_log_button = ttk.Button(log_window, text="Load RPC Setup", command=self.load_rpc_log)
+        self.load_log_button.pack(pady=5)
+#This function saves the data permanently
+    def save_rpc_log(self):
+        filepath = filedialog.asksaveasfilename(defaultextension="txt", filetypes=[("Text Files", "*.txt")])
+        if filepath:
+            with open(filepath, "w") as log_file:
+                for rpc in self.rpc_list:
+                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.efficiency},{rpc.gas_mixture}\n"
+                    log_file.write(log_entry)
+            messagebox.showinfo("Success", "RPC setup saved successfully.")
+
+    def load_rpc_log(self):
+        filepath = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if filepath:
+            with open(filepath, "r") as log_file:
+                self.rpc_list.clear()
+                for line in log_file:
+                    height, voltage, width, length, thickness, efficiency, gas_mixture = line.strip().split(',')
+                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
+###################################################################################################################
+#3D plot section
+################################################################################################################### 
     def plot_stations_3d(self):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')

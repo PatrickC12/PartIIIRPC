@@ -1,2 +1,0 @@
-RPC Plate - Height: 1.0m, Voltage: 1.0kV, Dimensions: [1.0, 1.0, 1.0]m, Efficiency: 1.0, Gas Mixture: {}
-RPC Plate - Height: 2.0m, Voltage: 2.0kV, Dimensions: [2.0, 2.0, 2.0]m, Efficiency: 0.0, Gas Mixture: {}
