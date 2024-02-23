@@ -362,9 +362,17 @@ class RPCSimulatorApp:
         self.use_strips_var = tk.BooleanVar()
         self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
         self.use_strips_check.pack(pady=5)
+        
+        self.Muon_angular_dist_var = tk.BooleanVar()
+        self.Muon_angular_dist_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.Muon_angular_dist_var, command=self.toggle_muon_angular_dist)
+        self.Muon_angular_dist_check.pack(pady=5)
 
     def toggle_strips(self):
         togglestrip = self.use_strips_var.get()
+        
+    def toggle_muon_angular_dist(self):
+        toggleangular = self.Muon_angular_dist_var.get()
+        
         
         
     def start_simulation(self):
@@ -376,27 +384,43 @@ class RPCSimulatorApp:
 
         
         for ns in range(int(sim_time)):
-            if np.random.uniform(0, 1) < muons_per_ns:
+            
+            if np.random.uniform(0,1) <= muons_per_ns:
+                theta = np.arccos(np.sqrt(np.random.uniform()))  # Generate angle with cos^2(theta) distribution
+                phi = np.random.uniform(0, 2 * np.pi)  # Uniform distribution for azimuthal angle
+                
+                # Calculate initial velocity components
+                speed = - speed_of_light * muon_speed  # Approx constant speed for muons
+                vx = speed * np.sin(theta) * np.cos(phi)
+                vy = speed * np.sin(theta) * np.sin(phi)
+                vz = speed * np.cos(theta)
+                
                 x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
                 y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
                 z_pos = max(rpc.height for rpc in self.rpc_list) + 5
 
-                # Check for detection by each RPC plate
-                for rpc in self.rpc_list:
-                    if rpc.height < z_pos and rpc.height + rpc.dimensions[2]/1000 >= z_pos - muon_speed * speed_of_light * ns:
-                        if np.random.uniform(0, 1) <= rpc.efficiency:
-                            detection_time = ns
-                            detected_muons.append({
-                                "x_position": x_pos,
-                                "y_position": y_pos,
-                                "z_position_at_detection": rpc.height,
-                                "detection_time_ns": detection_time,
-                                "starting_z_position": z_pos,
-                                "initial_velocity": muon_speed * speed_of_light
-                            })
-
+            # Check for detection by each RPC plate
+            for rpc in self.rpc_list:
+                predicted_z = z_pos + vz * ns  # Predicted z position after ns nanoseconds
+                if rpc.height >= predicted_z and rpc.height + rpc.dimensions[2]/1000 <= z_pos:
+                    xdetect = x_pos + vx * ns
+                    ydetect = y_pos + vy * ns
+                    if np.random.uniform(0, 1) <= rpc.efficiency and 0 <= xdetect <= rpc.dimensions[0] and 0 <= ydetect <= rpc.dimensions[1]:
+                        detection_time = ns
+                        
+                        
+                        detected_muons.append({
+                            "x_position": xdetect,
+                            "y_position": ydetect,
+                            "z_position_at_detection": rpc.height,
+                            "detection_time_ns": detection_time,
+                            "starting_z_position": z_pos,
+                            "initial_velocity": muon_speed,
+                            "theta": theta,
+                            "phi": phi
+                        })
+                        
         df_detected_muons = pd.DataFrame(detected_muons)
-
         self.simulation_finished_dialog(df_detected_muons)
 ###################################################################################################################
 #Simulation result section
