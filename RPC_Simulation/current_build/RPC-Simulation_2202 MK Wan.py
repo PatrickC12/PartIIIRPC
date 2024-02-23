@@ -24,7 +24,7 @@ sns.set_theme(style="darkgrid")
 
 class RPC:
 
-    def __init__(self,gas_mixture,efficiency,dimensions,height,voltage):
+    def __init__(self,gas_mixture,efficiency,dimensions, strips, height,voltage):
 
         self.gas_mixture = gas_mixture
         #Enter gas mixture as array from GUI
@@ -41,6 +41,8 @@ class RPC:
 
         self.voltage = voltage
         #Voltage applied across electrodes in the RPC, measuredin kV.
+        
+        self.strips = strips
 
     #RPC will have attributes of dimensions, efficiency, gas mixture etc...
     #Use Garfield++ to find breakdown voltages of gas mixture
@@ -155,7 +157,7 @@ class RPCSimulatorApp:
         #UI Elements for entering the attributes of the RPC being added.
 
         # Height of RPC
-        self.height_var_label = ttk.Label(rpc_window, text="Height (in metres) of the RPC plate: ")
+        self.height_var_label = ttk.Label(rpc_window, text="Z axis (in metres) of the RPC plate: ")
         self.height_var_label.pack(pady=5)
         self.height_var = tk.DoubleVar()
         self.height_var_entry = ttk.Entry(rpc_window, textvariable=self.height_var)
@@ -186,6 +188,18 @@ class RPCSimulatorApp:
         self.t_var = tk.DoubleVar()
         self.t_var_entry = ttk.Entry(rpc_window, textvariable=self.t_var)
         self.t_var_entry.pack(pady=5)
+        
+        self.xs_var_label = ttk.Label(rpc_window, text="Number of strips in x direction: ")
+        self.xs_var_label.pack(pady=5)
+        self.xs_var = tk.DoubleVar()
+        self.xs_var_entry = ttk.Entry(rpc_window, textvariable=self.xs_var)
+        self.xs_var_entry.pack(pady=5)
+        
+        self.ys_var_label = ttk.Label(rpc_window, text="Number of strips in y direction: ")
+        self.ys_var_label.pack(pady=5)
+        self.ys_var = tk.DoubleVar()
+        self.ys_var_entry = ttk.Entry(rpc_window, textvariable=self.ys_var)
+        self.ys_var_entry.pack(pady=5)
         
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
@@ -232,10 +246,11 @@ class RPCSimulatorApp:
         height = float(self.height_var.get())
         voltage = float(self.voltage_var.get())
         dimensions = [float(self.x_var.get()), float(self.y_var.get()),float(self.y_var.get())]
+        strips = [int(self.xs_var.get()), int(self.ys_var.get())]
         efficiency = float(self.efficiency_var.get())
         gas_mixture = {gas: percentage.get() for gas, (selected, percentage) in self.selected_gases.items() if selected.get()}
-        new_rpc = RPC(height=height,efficiency=efficiency,
-                        dimensions=dimensions,voltage=voltage,gas_mixture=gas_mixture)
+        new_rpc = RPC(height=height, efficiency=efficiency,
+                        dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture)
         
         # Add RPC object to the array
         self.rpc_list.append(new_rpc)
@@ -260,7 +275,7 @@ class RPCSimulatorApp:
         if filepath:
             with open(filepath, "w") as log_file:
                 for rpc in self.rpc_list:
-                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.efficiency},{rpc.gas_mixture}\n"
+                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.strips[0]},{rpc.strips[1]},{rpc.efficiency},{rpc.gas_mixture}\n"
                     log_file.write(log_entry)
             messagebox.showinfo("Success", "RPC setup saved successfully.")
 
@@ -270,8 +285,8 @@ class RPCSimulatorApp:
             with open(filepath, "r") as log_file:
                 self.rpc_list.clear()
                 for line in log_file:
-                    height, voltage, width, length, thickness, efficiency, gas_mixture = line.strip().split(',')
-                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
+                    height, voltage, width, length, thickness, xstrip, ystrip, efficiency, gas_mixture = line.strip().split(',')
+                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)],strips=[int(xstrip), int(ystrip)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
                     self.rpc_list.append(rpc)
 ###################################################################################################################
 #3D plot section
@@ -316,24 +331,36 @@ class RPCSimulatorApp:
     def run_simulation_window(self):
         simulation_window = tk.Toplevel(self.master)
         simulation_window.title("Simulation Settings")
+        
+        self.simple_simulation_button = ttk.Button(simulation_window, text = 'Simp Simulation', command=self.simp_sim)
+        self.simple_simulation_button.pack(pady=5)
+        
+        
 
+        
+    def simp_sim(self):
+        
+        simp_simulation_window = tk.Toplevel(self.master)
+        simp_simulation_window.title("Simulation Settings")
+        
         # Number of muons
-        self.num_muons_label = ttk.Label(simulation_window, text="Number of muons/ns:")
+        self.num_muons_label = ttk.Label(simp_simulation_window, text="Number of muons/ns:")
         self.num_muons_label.pack(pady=5)
         self.num_muons_var = tk.DoubleVar()
-        self.num_muons_entry = ttk.Entry(simulation_window, textvariable=self.num_muons_var)
+        self.num_muons_entry = ttk.Entry(simp_simulation_window, textvariable=self.num_muons_var)
         self.num_muons_entry.pack(pady=5)
 
         # Simulation time in ns
-        self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (ns):")
+        self.sim_time_label = ttk.Label(simp_simulation_window, text="Simulation time (ns):")
         self.sim_time_label.pack(pady=5)
         self.sim_time_var = tk.DoubleVar()
-        self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
+        self.sim_time_entry = ttk.Entry(simp_simulation_window, textvariable=self.sim_time_var)
         self.sim_time_entry.pack(pady=5)
 
         # Start simulation button
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation)
+        self.start_sim_button = ttk.Button(simp_simulation_window, text="Start Simulation", command=self.start_simulation)
         self.start_sim_button.pack(pady=5)
+        
 
     def start_simulation(self):
         muons_per_ns = self.num_muons_var.get()
