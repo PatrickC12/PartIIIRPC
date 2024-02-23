@@ -444,8 +444,8 @@ class RPCSimulatorApp:
 
         plt.show()
         
-    # def calc_efficiencies(self):
-    #     pass
+    def calc_efficiencies(self):
+        pass
 
 
 
