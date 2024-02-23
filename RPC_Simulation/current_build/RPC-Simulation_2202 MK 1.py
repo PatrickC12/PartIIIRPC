@@ -82,7 +82,10 @@ class RPCSimulatorApp:
         self.plot_button.pack(pady=5)
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
-        self.log_button.pack(pady=5)       
+        self.log_button.pack(pady=5)
+        
+        self.simulate_button = ttk.Button(self.frame, text="Run Simulation", command=self.run_simulation_window)
+        self.simulate_button.pack(pady=5) 
         #Calculate the track reconstruction efficiencies.
         #Hit reconstruction efficiencies. 
     
@@ -297,6 +300,121 @@ class RPCSimulatorApp:
                         [0, max(rpc.height for rpc in self.rpc_list)])
         
         plt.show()
+    
+###################################################################################################################
+#Simulation Section
+################################################################################################################### 
+    def run_simulation_window(self):
+        simulation_window = tk.Toplevel(self.master)
+        simulation_window.title("Simulation Settings")
+
+        # Number of muons
+        self.num_muons_label = ttk.Label(simulation_window, text="Number of muons/ns:")
+        self.num_muons_label.pack(pady=5)
+        self.num_muons_var = tk.IntVar()
+        self.num_muons_entry = ttk.Entry(simulation_window, textvariable=self.num_muons_var)
+        self.num_muons_entry.pack(pady=5)
+
+        # Simulation time in ns
+        self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (ns):")
+        self.sim_time_label.pack(pady=5)
+        self.sim_time_var = tk.DoubleVar()
+        self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
+        self.sim_time_entry.pack(pady=5)
+
+        # Start simulation button
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation)
+        self.start_sim_button.pack(pady=5)
+
+    def start_simulation(self):
+        muons_per_ns = self.num_muons_var.get()
+        sim_time = self.sim_time_var.get()
+        muon_speed = 0.98
+        speed_of_light = 0.299792458 # m/ns
+        detected_muons = [] # List to store detected muon data
+
+        for ns in range(int(sim_time)):
+            if np.random.uniform(0, 1) < muons_per_ns:
+                x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
+                y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
+                z_pos = max(rpc.height for rpc in self.rpc_list) + 30
+
+                # Check for detection by each RPC plate
+                for rpc in self.rpc_list:
+                    if rpc.height < z_pos and rpc.height + rpc.dimensions[2]/1000 >= z_pos - muon_speed * speed_of_light:
+                        if np.random.uniform(0, 1) <= rpc.efficiency:
+                            detection_time = ns
+                            detected_muons.append({
+                                "x_position": x_pos,
+                                "y_position": y_pos,
+                                "detection_time_ns": detection_time,
+                                "starting_z_position": z_pos,
+                                "initial_velocity": muon_speed * speed_of_light
+                            })
+
+        df_detected_muons = pd.DataFrame(detected_muons)
+
+        self.simulation_finished_dialog(df_detected_muons)
+
+    def simulation_finished_dialog(self, df_detected_muons):
+        dialog_window = tk.Toplevel(self.master)
+        dialog_window.title("Simulation Finished")
+
+        # Button to view data in DataFrame
+        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_detected_muons))
+        view_data_button.pack(pady=5)
+
+        # Button to plot data on 3D plot
+        plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(df_detected_muons))
+        plot_data_button.pack(pady=5)
+
+        # Button to save data into a CSV (redundant since data is already saved, but added for completeness)
+        save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_detected_muons))
+        save_data_button.pack(pady=5)
+        
+    def view_data(self, df):
+        try:
+            from pandastable import Table
+            data_window = tk.Toplevel(self.master)
+            data_window.title("Detected Muons Data")
+            pt = Table(data_window, dataframe=df)
+            pt.show()
+        except ImportError:
+            messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
+
+    def plot_detected_muons(self, df):
+        self.plot_stations_3d(df)
+
+    def save_data_again(self, df):
+        filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
+        if filepath:
+            df.to_csv(filepath, index=False)
+            messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
+
+    def plot_stations_3d(self, df=None):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+            vertices = np.array([[0, 0, z], [width, 0, z], [width, length, z], [0, length, z]])
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            ax.add_collection3d(poly3d)
+        
+        # Plot detected muons if DataFrame is provided
+        if df is not None:
+            ax.scatter(df['x_position'], df['y_position'], df['detection_time_ns'], color='red', marker='o', label='Detected Muons')
+            ax.legend()
+
+        ax.set_xlabel('X (m)')
+        ax.set_ylabel('Y (m)')
+        ax.set_zlabel('Height (m)')
+        ax.auto_scale_xyz([0, max(rpc.dimensions[0] for rpc in self.rpc_list)], [0, max(rpc.dimensions[1] for rpc in self.rpc_list)], [0, max(rpc.height for rpc in self.rpc_list)])
+        
+        plt.show()
+    
     def calc_efficiencies(self):
         pass
 
