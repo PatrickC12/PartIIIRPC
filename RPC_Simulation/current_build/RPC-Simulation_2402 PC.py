@@ -492,7 +492,7 @@ class RPCSimulatorApp:
                     #Generate velocity of muon, cos^2(theta) distribution for angle.
 
                     phi = np.random.uniform(0,2*np.pi)
-                    theta = np.pi/6
+                    theta = np.pi/180
 
                     print(phi)
                     #Change this later to match angular distribution of cosmic muons.
@@ -587,6 +587,24 @@ class RPCSimulatorApp:
 
         # Function to update the plot for each frame of the animation
         def update(frame):
+
+            #If you would like to plot the entire trajectory (eg if you have a low flux and only a small # events) then just remove this ax.cla()
+            
+            ax.cla()
+
+            for rpc in self.rpc_list:
+                z = rpc.height
+                width, length, _ = rpc.dimensions
+
+                vertices = np.array([[0, 0, z],
+                                    [width, 0, z],
+                                    [width, length, z],
+                                    [0, length, z]])
+                
+                # Define the vertices of the rectangle
+                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                ax.add_collection3d(poly3d)
             
             # Calculate the time corresponding to the current frame, I have set it so that 1 frame is 1 nanosecond
 
@@ -613,25 +631,6 @@ class RPCSimulatorApp:
                     faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
                     poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
                     ax.add_collection3d(poly3d) """ """ """
-            
-
-            ##If you would like to plot the entire trajector (eg if you have a low flux and only a small # events) then just remove this ax.cla()
-            
-            ax.cla()
-
-            for rpc in self.rpc_list:
-                z = rpc.height
-                width, length, _ = rpc.dimensions
-
-                vertices = np.array([[0, 0, z],
-                                    [width, 0, z],
-                                    [width, length, z],
-                                    [0, length, z]])
-                
-                # Define the vertices of the rectangle
-                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-                ax.add_collection3d(poly3d)
 
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
