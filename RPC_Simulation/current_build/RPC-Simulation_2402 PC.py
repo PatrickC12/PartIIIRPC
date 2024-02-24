@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.stats import rv_discrete
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -557,13 +558,20 @@ class RPCSimulatorApp:
 
                     position = [x_pos,y_pos,z_pos]
 
-                    #Generate velocity of muon, cos^2(theta) distribution for angle.
+                    #####Generate velocity of muon, cos^2(theta) distribution for angle.
 
                     phi = np.random.uniform(0,2*np.pi)
-                    theta = np.pi/180
 
-                    print(phi)
-                    #Change this later to match angular distribution of cosmic muons.
+                    #Generating discrete distribution for zenith angle of muon.
+
+                    theta_val = np.linspace(0,np.pi/2,100)
+
+                    #Convert continuous probability distribution function into discrete distribution function.
+                    probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
+                    Norm = np.sum(probs)
+                    norm_probs = np.multiply(1/Norm,probs)
+
+                    theta = np.random.choice(theta_val,p=norm_probs)
 
                     #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
 
