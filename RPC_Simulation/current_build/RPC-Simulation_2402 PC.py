@@ -369,11 +369,9 @@ class RPCSimulatorApp:
                     else:
                         continue
 
-                print(j)
-                print(sent_number)
-
                 for i in range(len(sent_number)):
 
+                    #For each RPC in the txt file, extract the attributes.
                     if i < len(sent_number)-1:
 
                         rpc_attributes = log_file[sent_number[i]+1:sent_number[i+1]]
@@ -381,12 +379,8 @@ class RPCSimulatorApp:
                         filt_item = []
 
                         for item in rpc_attributes:
-
-                            print(item)
-
+                            #Filter out unnecessary aspects of string.
                             item = item[item.find(' = ')+3:]
-
-                            print(item)
                             filt_item.append(item)
 
                         rpc = RPC(height=float(filt_item[0]), voltage=float(filt_item[1]), dimensions=[float(filt_item[2]),
