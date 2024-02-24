@@ -1,0 +1,22 @@
+RPC 1
+Height = 5.0,
+Voltage (kV) = 1.0,
+Width (m) = 0.5,
+Length(m) = 0.5,
+Thickness (m) = 0.002,
+Number of Strips in x direction = 32,
+Number of strips in y direction = 32,
+RPC Efficiency = 0.8,
+RPC Gas mixture = {}
+
+RPC 2
+Height = 10.0,
+Voltage (kV) = 2.0,
+Width (m) = 0.25,
+Length(m) = 0.25,
+Thickness (m) = 0.003,
+Number of Strips in x direction = 30,
+Number of strips in y direction = 40,
+RPC Efficiency = 0.74,
+RPC Gas mixture = {}
+

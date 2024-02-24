@@ -275,7 +275,7 @@ class RPCSimulatorApp:
             self.gas_percentage_var_label = ttk.Label(gas_frame, text="% Of Gas mixture by volume: ")
             self.gas_percentage_var_label.pack(side="left")
 
-            self.gas_percentage[gas]=self.gas_percentage_var.get()
+            self.selected_gases[gas]=(self.select_gas.get(),self.gas_percentage_var.get())
                     
         # Efficiency of RPC
         self.efficiency_var_label = ttk.Label(rpc_window, text="Hit efficiency of the RPC: ")
@@ -319,14 +319,30 @@ class RPCSimulatorApp:
 
         self.load_log_button = ttk.Button(log_window, text="Load RPC Setup", command=self.load_rpc_log)
         self.load_log_button.pack(pady=5)
+
 #This function saves the data permanently
     def save_rpc_log(self):
         filepath = filedialog.asksaveasfilename(defaultextension="txt", filetypes=[("Text Files", "*.txt")])
         if filepath:
             with open(filepath, "w") as log_file:
+                i= 1
                 for rpc in self.rpc_list:
-                    log_entry = f"{rpc.height},{rpc.voltage},{rpc.dimensions[0]},{rpc.dimensions[1]},{rpc.dimensions[2]},{rpc.strips[0]},{rpc.strips[1]},{rpc.efficiency},{rpc.gas_mixture}\n"
+                    #Probably relabel the number of strips in x and y direction to theta and phi direction 
+                    log_entry = f"RPC {i}\n" \
+                            f"Height = {rpc.height},\n" \
+                            f"Voltage (kV) = {rpc.voltage},\n" \
+                            f"Width (m) = {rpc.dimensions[0]},\n" \
+                            f"Length(m) = {rpc.dimensions[1]},\n" \
+                            f"Thickness (m) = {rpc.dimensions[2]},\n" \
+                            f"Number of Strips in x direction = {rpc.strips[0]},\n" \
+                            f"Number of strips in y direction = {rpc.strips[1]},\n" \
+                            f"RPC Efficiency = {rpc.efficiency},\n" \
+                            f"RPC Gas mixture = {rpc.gas_mixture}\n" \
+                            "\n"
+                    
                     log_file.write(log_entry)
+                    i+=1
+
             messagebox.showinfo("Success", "RPC setup saved successfully.")
 
     def load_rpc_log(self):
@@ -334,6 +350,7 @@ class RPCSimulatorApp:
         if filepath:
             with open(filepath, "r") as log_file:
                 self.rpc_list.clear()
+                i = 1
                 for line in log_file:
                     height, voltage, width, length, thickness, xstrip, ystrip, efficiency, gas_mixture = line.strip().split(',')
                     rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)],strips=[int(xstrip), int(ystrip)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
@@ -360,8 +377,7 @@ class RPCSimulatorApp:
             ax.add_collection3d(poly3d)
         
         if df is not None:
-            ax.scatter(df['x_position'], df['y_position'], df['z_position_at_detection'], color='red', marker='o', label='Detected Muons')
-            ax.legend()
+            pass
 
         # Setting the labels for each axis
         ax.set_xlabel('X (m)')
@@ -536,18 +552,7 @@ class RPCSimulatorApp:
         play_video_button.pack(pady=5)
         
     def view_data(self, df):
-        if df.empty:
-            messagebox.showinfo("No Data", "No muons were detected during the simulation.")
-            return
-
-        try:
-            from pandastable import Table
-            data_window = tk.Toplevel(self.master)
-            data_window.title("Detected Muons Data")
-            pt = Table(data_window, dataframe=df)
-            pt.show()
-        except ImportError:
-            messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
+        pass
 
     def plot_detected_muons(self, df):
         self.plot_stations_3d(df)
@@ -692,7 +697,9 @@ if __name__ == "__main__":
 #Later ideas:
         # Generate a decaying particle, some set lifetime.
         # Create charge products, trace paths of products, do animation.
-        # Run example for ANUBIS tracking station. 
+        # Run example for ANUBIS tracking station.
+        # plot_detected_muons function should plot muon trajectories of tagged muons.
+        # Improve RPC updating widget and RPC text files. Make this more user friendly.
 
 
 
