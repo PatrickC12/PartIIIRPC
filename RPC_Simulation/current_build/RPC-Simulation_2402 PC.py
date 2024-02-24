@@ -114,22 +114,14 @@ class RPCSimulatorApp:
         self.frame = ttk.Frame(master)
         self.frame.pack(padx=150, pady=200)
 
-        # #Input how many RPC Plates you would like.
-
-        # self.Number_RPCs = tk.IntVar()
-        # self.Number_RPCs = ttk.Entry(self.frame, textvariable = self.Number_RPCs)
-        # self.Number_RPCs.pack(pady=5)
-        # self.Number_RPCs_label = ttk.Label(self.frame, text= "How many RPCs would you like to simulate: ")
-        # self.Number_RPCs_label.pack(pady=5)
-
         # Button to start generating RPC list
         self.rpc_list = []
 
         self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates", command=self.manage_rpc_window)
         self.manage_rpc_button.pack(pady=5)
 
-        self.calc_button = ttk.Button(self.frame, text="Calculate Efficiencies", state='disabled', command=self.calc_efficiencies)
-        self.calc_button.pack(pady=5)
+        """ self.calc_button = ttk.Button(self.frame, text="Calculate Efficiencies", state='disabled', command=self.calc_efficiencies)
+        self.calc_button.pack(pady=5) """
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
         self.log_button.pack(pady=5)
@@ -262,20 +254,21 @@ class RPCSimulatorApp:
             gas_frame = ttk.Frame(rpc_window)
             gas_frame.pack(side="top", fill="x", pady=5)
 
-            self.gas_percentage_var = tk.DoubleVar()
-            self.gas_percentage_entry = ttk.Entry(gas_frame, textvariable=self.gas_percentage_var, state="disabled")
-            self.gas_percentage_entry.pack(side="left", padx=5)
+            gas_percentage_var = tk.DoubleVar()  # Use local variable instead of self.gas_percentage_var
+            gas_percentage_entry = ttk.Entry(gas_frame, textvariable=gas_percentage_var, state="disabled")
+            gas_percentage_entry.pack(side="left", padx=5)
 
             # Checkbox
-            self.select_gas = tk.BooleanVar()
-            chk = ttk.Checkbutton(rpc_window, text=gas, variable=self.select_gas, command=lambda v=self.select_gas, e=self.gas_percentage_entry: self.show_entry(v, e))
+            select_gas = tk.BooleanVar()  # Use local variable instead of self.select_gas
+            chk = ttk.Checkbutton(rpc_window, text=gas, variable=select_gas, command=lambda v=select_gas, e=gas_percentage_entry: self.show_entry(v, e))
             chk.pack(side="top", anchor="w", pady=5)
 
             # Gas percentage label
-            self.gas_percentage_var_label = ttk.Label(gas_frame, text="% Of Gas mixture by volume: ")
-            self.gas_percentage_var_label.pack(side="left")
+            gas_percentage_var_label = ttk.Label(gas_frame, text="% Of Gas mixture by volume: ")
+            gas_percentage_var_label.pack(side="left")
 
-            self.selected_gases[gas]=(self.select_gas.get(),self.gas_percentage_var.get())
+            # Add gas selection to dictionary when checkbox is clicked
+            self.selected_gases[gas] = (select_gas, gas_percentage_var)  # Store variables, not their current values
                     
         # Efficiency of RPC
         self.efficiency_var_label = ttk.Label(rpc_window, text="Hit efficiency of the RPC: ")
@@ -283,6 +276,10 @@ class RPCSimulatorApp:
         self.efficiency_var = tk.DoubleVar()
         self.efficiency_var_entry = ttk.Entry(rpc_window, textvariable=self.efficiency_var)
         self.efficiency_var_entry.pack(pady=5)
+
+        if float(self.efficiency_var.get())> 1.0 or float(self.efficiency_var.get())<0.0:
+            messagebox.showinfo("Please enter a valid efficiency for the RPC plate")
+            return
     
 ###################################################################################################################
 #Data Logging section
@@ -328,8 +325,8 @@ class RPCSimulatorApp:
                 i= 1
                 for rpc in self.rpc_list:
                     #Probably relabel the number of strips in x and y direction to theta and phi direction 
-                    log_entry = f"RPC {i}\n" \
-                            f"Height = {rpc.height},\n" \
+                    log_entry = f"RPC {i},\n" \
+                            f"Height(m) = {rpc.height},\n" \
                             f"Voltage (kV) = {rpc.voltage},\n" \
                             f"Width (m) = {rpc.dimensions[0]},\n" \
                             f"Length(m) = {rpc.dimensions[1]},\n" \
@@ -337,7 +334,7 @@ class RPCSimulatorApp:
                             f"Number of Strips in x direction = {rpc.strips[0]},\n" \
                             f"Number of strips in y direction = {rpc.strips[1]},\n" \
                             f"RPC Efficiency = {rpc.efficiency},\n" \
-                            f"RPC Gas mixture = {rpc.gas_mixture}\n" \
+                            f"RPC Gas mixture = {rpc.gas_mixture},\n" \
                             "\n"
                     
                     log_file.write(log_entry)
@@ -346,15 +343,76 @@ class RPCSimulatorApp:
             messagebox.showinfo("Success", "RPC setup saved successfully.")
 
     def load_rpc_log(self):
+
         filepath = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+
+        #Read RPC Setup files.
         if filepath:
+
             with open(filepath, "r") as log_file:
+
+                log_file = list(log_file)
+
+                for l in log_file:
+                    log_file[log_file.index(l)]=l[:-2]
+
                 self.rpc_list.clear()
-                i = 1
+              
+                #Store starting line number for specific RPCs
+                sent_number = []
+
+                j = 1
                 for line in log_file:
-                    height, voltage, width, length, thickness, xstrip, ystrip, efficiency, gas_mixture = line.strip().split(',')
-                    rpc = RPC(height=float(height), efficiency=float(efficiency), dimensions=[float(width), float(length), float(thickness)],strips=[int(xstrip), int(ystrip)], voltage=float(voltage), gas_mixture=eval(gas_mixture))
-                    self.rpc_list.append(rpc)
+                    if line.replace(" ", "") == f"RPC{j}":
+                        sent_number.append(log_file.index(line))
+                        j+=1
+                    else:
+                        continue
+
+                print(j)
+                print(sent_number)
+
+                for i in range(len(sent_number)):
+
+                    if i < len(sent_number)-1:
+
+                        rpc_attributes = log_file[sent_number[i]+1:sent_number[i+1]]
+
+                        filt_item = []
+
+                        for item in rpc_attributes:
+
+                            print(item)
+
+                            item = item[item.find(' = ')+3:]
+
+                            print(item)
+                            filt_item.append(item)
+
+                        rpc = RPC(height=float(filt_item[0]), voltage=float(filt_item[1]), dimensions=[float(filt_item[2]),
+                                float(filt_item[3]), float(filt_item[4])],strips=[int(filt_item[5]), int(filt_item[6])], 
+                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]))
+                        self.rpc_list.append(rpc)
+
+                        print(f"RPC {i} successfully added")
+                    else:
+
+                        rpc_attributes = log_file[sent_number[i]+1:]
+
+                        filt_item = []
+
+                        for item in rpc_attributes:
+
+                            item = item[item.find(' = ')+3:]
+                            filt_item.append(item)
+
+                        rpc = RPC(height=float(filt_item[0]), voltage=float(filt_item[1]), dimensions=[float(filt_item[2]),
+                                float(filt_item[3]), float(filt_item[4])],strips=[int(filt_item[5]), int(filt_item[6])], 
+                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]))
+                        self.rpc_list.append(rpc)
+
+                        print(f"RPC {i} successfully added")
+
 ###################################################################################################################
 #3D plot section
 ################################################################################################################### 
