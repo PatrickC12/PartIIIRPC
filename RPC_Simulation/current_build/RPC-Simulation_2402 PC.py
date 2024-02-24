@@ -46,6 +46,12 @@ class RPC:
         self.strips = strips
 
     def coincidence(self):
+    
+        pass
+
+    def generate_dark(self):
+
+        #incorporate self.strips here somewhere.
         pass
 
     #RPC will have attributes of dimensions, efficiency, gas mixture etc...
@@ -97,8 +103,15 @@ class muon:
 
         dT = time_step
 
+        min_rpc_height = min(rpc.height for rpc in rpc_list)
+        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
+        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
+
         #Stop simulating the muon's trajectory once it's z cooridnate passes 0.5 m below the lowest RPC.
-        while self.position[2] > min(rpc.height for rpc in rpc_list)-1:
+
+        while (self.position[2] > min_rpc_height-1 and
+            -max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
+            -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1):
 
             T+=dT
             self.update_position(time_step)
@@ -134,6 +147,7 @@ class RPCSimulatorApp:
     
 ###################################################################################################################
 #RPC Management Section
+###Mange_RPC panel is quite shite... could do with an upgrade todo ######
 ################################################################################################################### 
     def manage_rpc_window(self):
         manage_window = tk.Toplevel(self.master)
@@ -354,8 +368,8 @@ class RPCSimulatorApp:
 
                 log_file = list(log_file)
 
-                for l in log_file:
-                    log_file[log_file.index(l)]=l[:-2]
+                for index,l in enumerate(log_file):
+                    log_file[index]=l[:-2]
 
                 self.rpc_list.clear()
               
@@ -363,9 +377,9 @@ class RPCSimulatorApp:
                 sent_number = []
 
                 j = 1
-                for line in log_file:
+                for index,line in enumerate(log_file):
                     if line.replace(" ", "") == f"RPC{j}":
-                        sent_number.append(log_file.index(line))
+                        sent_number.append(index)
                         j+=1
                     else:
                         continue
@@ -593,12 +607,17 @@ class RPCSimulatorApp:
 #Simulation result section
 ###################################################################################################################
     def simulation_finished_dialog(self, muons):
-        dialog_window = tk.Toplevel(self.master)
-        dialog_window.title("Simulation Finished")
 
-        # Button to view data in DataFrame
+        dialog_window = tk.Toplevel(self.master)
+        dialog_window.title(f"Simulation Finished")
+
+        dialog_window_desc = tk.Label(dialog_window, text=f'{len(muons)} muons generated')
+        dialog_window_desc.pack(padx=30, pady=30)
+
+        ###Obselete###
+        """ # Button to view data in DataFrame
         view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(muons))
-        view_data_button.pack(pady=5)
+        view_data_button.pack(pady=5) """
 
         # Button to plot data on 3D plot
         plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(muons))
@@ -611,16 +630,13 @@ class RPCSimulatorApp:
         play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(muons))
         play_video_button.pack(pady=5)
         
-    def view_data(self, df):
-        pass
-
     def plot_detected_muons(self, df):
         self.plot_stations_3d(df)
 
-    def save_data_again(self, df):
+    def save_data_again(self, muons):
         filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
         if filepath:
-            df.to_csv(filepath, index=False)
+            muons.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
             
     def play_video(self,muons):
@@ -701,7 +717,7 @@ class RPCSimulatorApp:
             ax.set_ylabel('Y')
             ax.set_zlabel('Z')
             ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
-            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.)
+            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
             ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
 
             for muon in muons:
