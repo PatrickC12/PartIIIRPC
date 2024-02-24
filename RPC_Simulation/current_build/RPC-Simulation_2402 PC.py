@@ -44,6 +44,9 @@ class RPC:
         
         self.strips = strips
 
+    def coincidence(self):
+        pass
+
     #RPC will have attributes of dimensions, efficiency, gas mixture etc...
     #Use Garfield++ to find breakdown voltages of gas mixture
     #Experimentally determine which breakdown voltage would be good to use. 
@@ -656,14 +659,16 @@ class RPCSimulatorApp:
                         x, y, z = position[:, 0], position[:, 1], position[:, 2]
                         ax.plot(x, y, z, color='red')  # Plot the trajectory
 
-                        # Plot past trajectory poins tails.
+                        #Uncomment to add tail if you would like.
+
+                        """ # Plot past trajectory points tails.
                         if frame > 1:
                             past_frame = frame - 1
                             past_filtered_trajectory = [x for x in comb if past_frame - 1 < x[3] <= past_frame]
                             if len(past_filtered_trajectory) != 0:
                                 past_position = np.array(past_filtered_trajectory)[:, :3]
                                 x_past, y_past, z_past = past_position[:, 0], past_position[:, 1], past_position[:, 2]
-                                ax.plot(x_past, y_past, z_past, color='darkred')
+                                ax.plot(x_past, y_past, z_past, color='darkred') """
                             
                 else:
                     continue
