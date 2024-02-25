@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.stats import rv_discrete
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -603,6 +602,9 @@ class RPCSimulatorApp:
         print(f"Number of muons generated was {len(muons)}")
 
         self.simulation_finished_dialog(muons)
+
+    def start_simulation_long(self):
+        pass
 ###################################################################################################################
 #Simulation result section
 ###################################################################################################################
