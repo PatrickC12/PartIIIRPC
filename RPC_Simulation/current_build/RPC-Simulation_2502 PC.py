@@ -127,38 +127,45 @@ class RPCSimulatorApp:
         current_directory = os.getcwd()
 
         self.master = master
-        master.title("RPC Tracking station simulation")
+        master.title("Ultimate RPC Tracking station simulation")
 
-        self.frame = ttk.Frame(master)
-        self.frame.pack(padx=100, pady=150)
+        self.style = ttk.Style()
+        self.style.configure('custom.TFrame',relief='solid')
+
+        self.frame = ttk.Frame(master,style='custom.TFrame')
+        self.frame.pack(padx=50)
 
         self.img = Image.open(current_directory + "\RPC_Simulation\images\Banner.png")
         self.img = self.img.resize((400,120))
         self.img_tk = ImageTk.PhotoImage(self.img)
 
         self.banner = ttk.Label(self.frame, image= self.img_tk)
-        self.banner.pack(side='top',pady= 50)
+        self.banner.pack(side='top',pady= 20)
 
         # Button to start generating RPC list
         self.rpc_list = []
 
-        self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates", command=self.manage_rpc_window)
+        self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates (WIP)", command=self.manage_rpc_window)
         self.manage_rpc_button.pack(pady=5)
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
         self.log_button.pack(pady=20)
 
+        self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate cosmic ray muons through setup',font = 30)
+        self.nanoscale_sim_desc.pack(pady=10) 
+
         self.simulation_var = tk.BooleanVar(value=True)
-        self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanosecond scale simulation', variable = self.simulation_var, value = True)
+        self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanoseconds scale simulation', variable = self.simulation_var, value = True)
         self.simulation_nano_checkbox.pack(anchor='center')
 
-        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation', variable = self.simulation_var, value = False)
-        self.simulation_norm_checkbox.pack(anchor= 'center',pady=20)
+        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation (WIP)', variable = self.simulation_var, value = False)
+        self.simulation_norm_checkbox.pack(anchor= 'center',pady=10)
 
-        self.simulate_button = ttk.Button(self.frame, text="Run Simulation", command=self.run_simulation)
-        self.simulate_button.pack(pady=5) 
-        #Calculate the track reconstruction efficiencies.
-        #Hit reconstruction efficiencies. 
+        self.simulate_button = ttk.Button(self.frame, text="Run cosmic ray muon simulation", style='success.TButton', command=self.run_simulation)
+        self.simulate_button.pack(pady=10) 
+
+        self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate decaying LLNP (WIP)',font = 30)
+        self.nanoscale_sim_desc.pack(pady=10) 
 
     def run_simulation(self):
 
@@ -543,10 +550,6 @@ class RPCSimulatorApp:
         #sim_time in nanoseconds
         sim_time_ns = self.sim_time_var.get()
 
-        """ #muon speed in units of c
-        muon_speed = 0.98
-        speed_of_light = 0.299792458 # m/ns """
-
         #Create empty area of muons to populate:
 
         muons = []
@@ -554,11 +557,11 @@ class RPCSimulatorApp:
         #Generate Muons at rate given by poisson distribution.
         #Each time step generate certain number of muons.
 
-        #Trajectory simulator time step (in nanosceonds), adaptive here since timescale of muon motion much faster than their generation.
+        #Trajectory simulator time step (in nanosceonds).
+        #Timescale always shorter than the vertical passage time of straight down muon through RPC plates, this hopefully means all muons have
+        #chance to be detected by simulation.
 
-        #HARDCODED NOW, BUT SCALE THIS LATER!!!
-
-        traj_time_step = 0.1
+        traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
         for ns in range(int(sim_time_ns)):
 
@@ -679,103 +682,77 @@ class RPCSimulatorApp:
                
     def start_simulation_normscale(self):
 
-        ##Nanoscale algorithm uses ineffecient timestep method. Here I simulate all steps regardless of whether a muon is generated or not.
-        ##I would like to update this algorithm at some point, rather draw the time t for 1 event to occur from a poisson distribution and jump to that
-        #step.
+        #Simulation time in seconds.
+        sim_time = self.sim_time_var
 
-        #Muon flux, muon_flux_var is measured in /cm^2/ns
+        #Muon flux, muon_flux_var is measured in /cm^2/s
         muons_flux = self.muon_flux_var.get()
         #Now calculate the expected muon rate given the dimensions of the problem.
         area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025
-        #Now calculate the average rate of muon arrival given the problem specifics.    
+        #Now calculate the average rate of muon arrival (/sec) given the problem specifics.    
         rate = muons_flux*area_m2*(1e4)
-
-        #sim_time in nanoseconds
-        sim_time_ns = self.sim_time_var.get()
-
-        """ #muon speed in units of c
-        muon_speed = 0.98
-        speed_of_light = 0.299792458 # m/ns """
-
-        #Create empty area of muons to populate:
 
         muons = []
     
-        #Generate Muons at rate given by poisson distribution.
-        #Each time step generate certain number of muons.
+        #Start counting time
+        running_time = 0
 
-        #Trajectory simulator time step (in nanosceonds), adaptive here since timescale of muon motion much faster than their generation.
+        traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458) 
 
-        #HARDCODED NOW, BUT SCALE THIS LATER!!!
+        while running_time < sim_time:
 
-        traj_time_step = 0.1
+            #Instead of simulating each time step, I am now drawing the time t of the next muon hit from a probability distribution.
+            #The distribution used here is a first passage time distribution. For a poisson process this leads to an exponential distribution.
+            #Due to the exponential nature of this first passage time distribution, it makes it difficult to sample discretely from it.
+            #Have to use inverse transform sampling from the first passage time distribution instead.
 
-        for ns in range(int(sim_time_ns)):
+            u = np.random.uniform()
+            #Luckily np.random.uniform() excludes 1, as this produces an infinite result from inverse transform sampling...
 
-            """ if ns%(1e6) == 0:
-                t = ns/(1e9)
-                print(f"Time elapse = {t} seconds") """
+            #muon_time here is the time between when the last muon was produced and the next muon is generated.
+            muon_time = -1 / rate *np.log(1-u)
+
+            #running_time (in seconds) now updated to time when new muon is generated
+            running_time+= muon_time
+
+            #it is possible for running_time to exceed sim_time in the while loop now, just including this break to avoid this.
+
+            if running_time >= sim_time:
+                break
+
+            #Generate initial position of muon above the RPC plate
+
+            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
+            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
+            z_pos = max(rpc.height for rpc in self.rpc_list)
+
+            position = [x_pos,y_pos,z_pos]
+
+            #####Generate velocity of muon, cos^2(theta) distribution for angle.
+
+            phi = np.random.uniform(0,2*np.pi)
+
+            #Generating discrete distribution for zenith angle of muon.
+
+            theta_val = np.linspace(0,np.pi/2,100)
+
+            #Convert continuous probability distribution function into discrete distribution function.
+            probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
+            Norm = np.sum(probs)
+            norm_probs = np.multiply(1/Norm,probs)
+
+            theta = np.random.choice(theta_val,p=norm_probs)
+
+            #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
+
+            velocity = np.multiply(0.98,[np.sin(theta)*np.cos(phi),np.sin(theta)*np.sin(phi),-np.cos(theta)])
             
-            ##Generate new muons in this time step###
-            # Num_muons_generated is number of new muons, this is drawn from a Poissonian distribution
+            #Create object of class muon with these randomly generated velocities and positions.
+            generated_muon = muon(position=position, velocity= velocity)
 
-            #Problem, could pass through an RPC in a single time step and hence be missed...
-            #Ideas, generate muon at timestep ns. 
-            #Extrapolate the muons behaviour until it reaches some z coordinate below the lowest RPC.
+            generated_muon.simulate_path(self.rpc_list,initial_time=(running_time*1e9),time_step=traj_time_step)
 
-            #Scaling muon arrival rate to time step (1ns)
-
-            scaled_rate = rate
-
-            #Generate a certain number of muons in this time step, drawn from a Poisson distribution.
-
-            num_muons_generated = np.random.poisson(scaled_rate)
-
-            if num_muons_generated == 0:
-                #If no muons produced in this time step, skip the time step to the next one.
-                continue
-            else:
-                #For each muon generated in this time step:
-                #Simulate its trajectory until it passes under a certain z value (eg 1m below the height of the lowest RPC plate)
-                for i in range(num_muons_generated):
-
-                    #Generate initial position of muon above the RPC plate
-
-                    x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
-                    y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
-                    z_pos = max(rpc.height for rpc in self.rpc_list)
-
-                    position = [x_pos,y_pos,z_pos]
-
-                    #####Generate velocity of muon, cos^2(theta) distribution for angle.
-
-                    phi = np.random.uniform(0,2*np.pi)
-
-                    #Generating discrete distribution for zenith angle of muon.
-
-                    theta_val = np.linspace(0,np.pi/2,100)
-
-                    #Convert continuous probability distribution function into discrete distribution function.
-                    probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
-                    Norm = np.sum(probs)
-                    norm_probs = np.multiply(1/Norm,probs)
-
-                    theta = np.random.choice(theta_val,p=norm_probs)
-
-                    #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
-
-                    velocity = np.multiply(0.98,[np.sin(theta)*np.cos(phi),np.sin(theta)*np.sin(phi),-np.cos(theta)])
-                    
-                    #Create object of class muon with these randomly generated velocities and positions.
-                    generated_muon = muon(position=position, velocity= velocity)
-
-                    generated_muon.simulate_path(self.rpc_list,initial_time=ns,time_step=traj_time_step)
-
-                    muons.append(generated_muon)
-
-        #Now pass on the generated list of muon trajectories to the simulation result section
-                    
-        print(f"Number of muons generated was {len(muons)}")
+            muons.append(generated_muon)
 
         self.simulation_finished_dialog(muons)
 ###################################################################################################################
@@ -800,7 +777,15 @@ class RPCSimulatorApp:
         
         play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(muons))
         play_video_button.pack(pady=5)
-        
+
+    def play_video(self,muons):
+
+        #Select video player format if nanoscale or norm scale simulation.
+        if self.simulation_var.get():
+            self.play_video_nano(muons)
+        else:
+            self.play_video_norm(muons)
+
     def plot_detected_muons(self, df):
         self.plot_stations_3d(df)
 
@@ -810,7 +795,7 @@ class RPCSimulatorApp:
             muons.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
             
-    def play_video(self,muons):
+    def play_video_nano(self,muons):
 
         # Create a figure and a 3D axis
         fig = plt.figure()
@@ -930,7 +915,128 @@ class RPCSimulatorApp:
         ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
 
         plt.show()
+
+    def play_video_norm(self,muons):
+
+        # Create a figure and a 3D axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+
+            vertices = np.array([[0, 0, z],
+                                [width, 0, z],
+                                [width, length, z],
+                                [0, length, z]])
+            
+            # Define the vertices of the rectangle
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            ax.add_collection3d(poly3d)
+
+        #Simulation time in nanoseconds
+        sim_time = self.sim_time_var.get()
         
+        #desired number of frames, I would like 1 frame for every 1ns of the animation.
+
+        number_of_frames = int(sim_time)
+
+        # Function to update the plot for each frame of the animation
+        def update(frame):
+
+            #If you would like to plot the entire trajectory (eg if you have a low flux and only a small # events) then just remove this ax.cla()
+            
+            ax.cla()
+
+            for rpc in self.rpc_list:
+                z = rpc.height
+                width, length, _ = rpc.dimensions
+
+                vertices = np.array([[0, 0, z],
+                                    [width, 0, z],
+                                    [width, length, z],
+                                    [0, length, z]])
+                
+                # Define the vertices of the rectangle
+                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                ax.add_collection3d(poly3d)
+            
+            # Calculate the time corresponding to the current frame, I have set it so that 1 frame is 1 nanosecond
+
+            """ #Only clear frames after every 5 frames, this increases the length of the streams behind the muons.
+            if frame % 5 ==0:
+                for line in ax.lines:
+                    if len(line.get_xdata()) > 5:  # Keep a maximum of 100 points per trajectory
+                        line.remove()
+
+                ####OLD SOLUTION ####
+
+                """ """ ax.cla()
+
+                for rpc in self.rpc_list:
+                    z = rpc.height
+                    width, length, _ = rpc.dimensions
+
+                    vertices = np.array([[0, 0, z],
+                                        [width, 0, z],
+                                        [width, length, z],
+                                        [0, length, z]])
+                    
+                    # Define the vertices of the rectangle
+                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                    poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                    ax.add_collection3d(poly3d) """ """ """
+
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+
+            for muon in muons:
+
+                i = 0 
+                
+                if muon.times[0] <= frame <= muon.times[-1]:
+
+                    comb =np.hstack((muon.trajectory, np.array(muon.times)[:, np.newaxis]))
+                    
+                    filtered_trajectory = [x for x in comb if frame-1<x[3]<=frame]
+
+                    if len(filtered_trajectory)==0:
+                        print(f"EMPTY FILTER!!, Frame is {frame}")
+                        pass
+                    else:
+                        # Extract positions from the trajectory
+                        position = np.array(filtered_trajectory)[:, :3]
+                        x, y, z = position[:, 0], position[:, 1], position[:, 2]
+                        ax.plot(x, y, z, color='red')  # Plot the trajectory
+
+                        #Uncomment to add tail if you would like.
+
+                        """ # Plot past trajectory points tails.
+                        if frame > 1:
+                            past_frame = frame - 1
+                            past_filtered_trajectory = [x for x in comb if past_frame - 1 < x[3] <= past_frame]
+                            if len(past_filtered_trajectory) != 0:
+                                past_position = np.array(past_filtered_trajectory)[:, :3]
+                                x_past, y_past, z_past = past_position[:, 0], past_position[:, 1], past_position[:, 2]
+                                ax.plot(x_past, y_past, z_past, color='darkred') """
+                            
+                else:
+                    continue
+
+            return ax
+
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+
+        plt.show()  
+
     def calc_efficiencies(self):
         pass
 
