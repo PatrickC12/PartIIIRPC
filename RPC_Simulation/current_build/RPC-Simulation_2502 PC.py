@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
+from PIL import ImageTk, Image
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -127,22 +128,40 @@ class RPCSimulatorApp:
         self.frame = ttk.Frame(master)
         self.frame.pack(padx=150, pady=200)
 
+        img = ImageTk.PhotoImage(Image.open())
+
+        banner = label(self.frame, image= img)
+        banner.pack(side='Top')
+
         # Button to start generating RPC list
         self.rpc_list = []
 
         self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates", command=self.manage_rpc_window)
         self.manage_rpc_button.pack(pady=5)
 
-        """ self.calc_button = ttk.Button(self.frame, text="Calculate Efficiencies", state='disabled', command=self.calc_efficiencies)
-        self.calc_button.pack(pady=5) """
-
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
         self.log_button.pack(pady=5)
-        
-        self.simulate_button = ttk.Button(self.frame, text="Run Simulation", command=self.run_simulation_window)
+
+        self.simulation_var = tk.BooleanVar(value=True)
+        self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanosecond scale simulation', variable = self.simulation_var, value = True)
+        self.simulation_nano_checkbox.pack(anchor= 'w')
+
+        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation', variable = self.simulation_var, value = False)
+        self.simulation_norm_checkbox.pack(anchor= 'w')
+
+        self.simulate_button = ttk.Button(self.frame, text="Run Simulation", command=self.run_simulation)
         self.simulate_button.pack(pady=5) 
         #Calculate the track reconstruction efficiencies.
         #Hit reconstruction efficiencies. 
+
+    def run_simulation(self):
+
+        #Choose simulation type depending on the User's input.
+
+        if self.simulation_var.get():
+            self.run_simulation_window_nano()
+        else:
+            self.run_simulation_window_norm()
     
 ###################################################################################################################
 #RPC Management Section
@@ -458,15 +477,15 @@ class RPCSimulatorApp:
         plt.show()
     
 ###################################################################################################################
-#Simulation Section
+# Nanosecond Scale Simulation Section
 ################################################################################################################### 
-    def run_simulation_window(self):
+    def run_simulation_window_nano(self):
 
         simulation_window = tk.Toplevel(self.master)
-        simulation_window.title("Simulation Settings")
+        simulation_window.title("Nanosecond Scale Simulation Settings")
 
         # Number of muons
-        self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm^2/ns: ")
+        self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/ns: ")
         self.muon_flux_label.pack(pady=5)
         self.muon_flux_var = tk.DoubleVar()
         self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
@@ -500,8 +519,159 @@ class RPCSimulatorApp:
 
     def toggle_strips(self):
         togglestrip = self.use_strips_var.get()
+        pass
                
     def start_simulation_nanoscale(self):
+
+        ##Nanoscale algorithm uses ineffecient timestep method. Here I simulate all steps regardless of whether a muon is generated or not.
+        ##I would like to update this algorithm at some point, rather draw the time t for 1 event to occur from a poisson distribution and jump to that
+        #step.
+
+        #Muon flux, muon_flux_var is measured in /cm^2/ns
+        muons_flux = self.muon_flux_var.get()
+        #Now calculate the expected muon rate given the dimensions of the problem.
+        area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025
+        #Now calculate the average rate of muon arrival given the problem specifics.    
+        rate = muons_flux*area_m2*(1e4)
+
+        #sim_time in nanoseconds
+        sim_time_ns = self.sim_time_var.get()
+
+        """ #muon speed in units of c
+        muon_speed = 0.98
+        speed_of_light = 0.299792458 # m/ns """
+
+        #Create empty area of muons to populate:
+
+        muons = []
+    
+        #Generate Muons at rate given by poisson distribution.
+        #Each time step generate certain number of muons.
+
+        #Trajectory simulator time step (in nanosceonds), adaptive here since timescale of muon motion much faster than their generation.
+
+        #HARDCODED NOW, BUT SCALE THIS LATER!!!
+
+        traj_time_step = 0.1
+
+        for ns in range(int(sim_time_ns)):
+
+            """ if ns%(1e6) == 0:
+                t = ns/(1e9)
+                print(f"Time elapse = {t} seconds") """
+            
+            ##Generate new muons in this time step###
+            # Num_muons_generated is number of new muons, this is drawn from a Poissonian distribution
+
+            #Problem, could pass through an RPC in a single time step and hence be missed...
+            #Ideas, generate muon at timestep ns. 
+            #Extrapolate the muons behaviour until it reaches some z coordinate below the lowest RPC.
+
+            #Scaling muon arrival rate to time step (1ns)
+
+            scaled_rate = rate
+
+            #Generate a certain number of muons in this time step, drawn from a Poisson distribution.
+
+            num_muons_generated = np.random.poisson(scaled_rate)
+
+            if num_muons_generated == 0:
+                #If no muons produced in this time step, skip the time step to the next one.
+                continue
+            else:
+                #For each muon generated in this time step:
+                #Simulate its trajectory until it passes under a certain z value (eg 1m below the height of the lowest RPC plate)
+                for i in range(num_muons_generated):
+
+                    #Generate initial position of muon above the RPC plate
+
+                    x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
+                    y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
+                    z_pos = max(rpc.height for rpc in self.rpc_list)
+
+                    position = [x_pos,y_pos,z_pos]
+
+                    #####Generate velocity of muon, cos^2(theta) distribution for angle.
+
+                    phi = np.random.uniform(0,2*np.pi)
+
+                    #Generating discrete distribution for zenith angle of muon.
+
+                    theta_val = np.linspace(0,np.pi/2,100)
+
+                    #Convert continuous probability distribution function into discrete distribution function.
+                    probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
+                    Norm = np.sum(probs)
+                    norm_probs = np.multiply(1/Norm,probs)
+
+                    theta = np.random.choice(theta_val,p=norm_probs)
+
+                    #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
+
+                    velocity = np.multiply(0.98,[np.sin(theta)*np.cos(phi),np.sin(theta)*np.sin(phi),-np.cos(theta)])
+                    
+                    #Create object of class muon with these randomly generated velocities and positions.
+                    generated_muon = muon(position=position, velocity= velocity)
+
+                    generated_muon.simulate_path(self.rpc_list,initial_time=ns,time_step=traj_time_step)
+
+                    muons.append(generated_muon)
+
+        #Now pass on the generated list of muon trajectories to the simulation result section
+                    
+        self.simulation_finished_dialog(muons)
+
+###################################################################################################################
+# Second Scale Simulation Section
+################################################################################################################### 
+    def run_simulation_window_norm(self):
+
+        simulation_window = tk.Toplevel(self.master)
+        simulation_window.title("Second Scale Simulation Settings")
+
+        # Number of muons
+        self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/s: ")
+        self.muon_flux_label.pack(pady=5)
+        self.muon_flux_var = tk.DoubleVar()
+        self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
+        self.muon_flux_entry.pack(pady=5)
+
+        # Simulation time in ns
+        self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (s):")
+        self.sim_time_label.pack(pady=5)
+        self.sim_time_var = tk.DoubleVar()
+        self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
+        self.sim_time_entry.pack(pady=5)
+        
+        # Advanced settings button
+        self.adv_settings_button = ttk.Button(simulation_window, text="Advanced Settings", command=self.open_advanced_settings)
+        self.adv_settings_button.pack(pady=5)
+
+        # Start simulation button
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_normscale)
+        self.start_sim_button.pack(pady=5)
+        
+    def open_advanced_settings(self):
+
+        advanced_window = tk.Toplevel(self.master)
+        advanced_window.title("Advanced Settings")
+
+        # Checkbox for using strips
+        self.use_strips_var = tk.BooleanVar()
+        self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
+        self.use_strips_check.pack(pady=5)
+
+        #Add checkbox for enabling dark counts
+
+        self.use_dark_counts_var = tk.BooleanVar()
+        self.use_dark_counts_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_dark_counts_var, command=self.toggle_strips)
+        self.use_dark_counts_check.pack(pady=5)
+
+    def toggle_strips(self):
+        togglestrip = self.use_strips_var.get()
+        pass
+               
+    def start_simulation_normscale(self):
 
         ##Nanoscale algorithm uses ineffecient timestep method. Here I simulate all steps regardless of whether a muon is generated or not.
         ##I would like to update this algorithm at some point, rather draw the time t for 1 event to occur from a poisson distribution and jump to that
@@ -602,9 +772,7 @@ class RPCSimulatorApp:
         print(f"Number of muons generated was {len(muons)}")
 
         self.simulation_finished_dialog(muons)
-
-    def start_simulation_long(self):
-        pass
+###################################################################################################################
 ###################################################################################################################
 #Simulation result section
 ###################################################################################################################
@@ -616,16 +784,11 @@ class RPCSimulatorApp:
         dialog_window_desc = tk.Label(dialog_window, text=f'{len(muons)} muons generated')
         dialog_window_desc.pack(padx=30, pady=30)
 
-        ###Obselete###
-        """ # Button to view data in DataFrame
-        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(muons))
-        view_data_button.pack(pady=5) """
-
         # Button to plot data on 3D plot
         plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(muons))
         plot_data_button.pack(pady=5)
 
-        # Button to save data into a CSV (redundant since data is already saved, but added for completeness)
+        # Button to save data into a CSV
         save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(muons))
         save_data_button.pack(pady=5)
         
