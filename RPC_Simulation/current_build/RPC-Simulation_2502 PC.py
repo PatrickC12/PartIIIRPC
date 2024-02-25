@@ -130,7 +130,7 @@ class RPCSimulatorApp:
         master.title("RPC Tracking station simulation")
 
         self.frame = ttk.Frame(master)
-        self.frame.pack(padx=150, pady=200)
+        self.frame.pack(padx=100, pady=150)
 
         self.img = Image.open(current_directory + "\RPC_Simulation\images\Banner.png")
         self.img = self.img.resize((400,120))
