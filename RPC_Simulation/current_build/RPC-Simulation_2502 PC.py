@@ -19,6 +19,8 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import ImageTk, Image
+import requests
+from io import BytesIO
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -122,16 +124,20 @@ class RPCSimulatorApp:
 
     def __init__(self, master):
 
+        current_directory = os.getcwd()
+
         self.master = master
         master.title("RPC Tracking station simulation")
 
         self.frame = ttk.Frame(master)
         self.frame.pack(padx=150, pady=200)
 
-        img = ImageTk.PhotoImage(Image.open())
+        self.img = Image.open(current_directory + "\RPC_Simulation\images\Banner.png")
+        self.img = self.img.resize((400,120))
+        self.img_tk = ImageTk.PhotoImage(self.img)
 
-        banner = label(self.frame, image= img)
-        banner.pack(side='Top')
+        self.banner = ttk.Label(self.frame, image= self.img_tk)
+        self.banner.pack(side='top',pady= 50)
 
         # Button to start generating RPC list
         self.rpc_list = []
@@ -140,14 +146,14 @@ class RPCSimulatorApp:
         self.manage_rpc_button.pack(pady=5)
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
-        self.log_button.pack(pady=5)
+        self.log_button.pack(pady=20)
 
         self.simulation_var = tk.BooleanVar(value=True)
         self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanosecond scale simulation', variable = self.simulation_var, value = True)
-        self.simulation_nano_checkbox.pack(anchor= 'w')
+        self.simulation_nano_checkbox.pack(anchor='center')
 
         self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation', variable = self.simulation_var, value = False)
-        self.simulation_norm_checkbox.pack(anchor= 'w')
+        self.simulation_norm_checkbox.pack(anchor= 'center',pady=20)
 
         self.simulate_button = ttk.Button(self.frame, text="Run Simulation", command=self.run_simulation)
         self.simulate_button.pack(pady=5) 
