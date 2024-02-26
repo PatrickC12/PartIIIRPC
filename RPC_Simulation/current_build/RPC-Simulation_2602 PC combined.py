@@ -1141,7 +1141,7 @@ class RPCSimulatorApp:
         save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_detected_muons))
         save_data_button.pack(pady=5)
         
-        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(df_detected_muons))
+        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video_nano(df_detected_muons))
         play_video_button.pack(pady=5)
             
     def view_data(self, df):
@@ -1157,70 +1157,6 @@ class RPCSimulatorApp:
             pt.show()
         except ImportError:
             messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
-
-    def play_video_nano(self, df):
-        # Create a figure and a 3D axis
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
-        for rpc in self.rpc_list:
-            z = rpc.height
-            width, length, _ = rpc.dimensions
-
-            vertices = np.array([[0, 0, z],
-                                [width, 0, z],
-                                [width, length, z],
-                                [0, length, z]])
-
-            # Define the vertices of the rectangle
-            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-            ax.add_collection3d(poly3d)
-
-        # Simulation time in nanoseconds and number of frames
-        sim_time = int(self.sim_time_var.get())
-        number_of_frames = sim_time
-
-        def update(frame):
-            ax.cla()  # Clear the axis to redraw
-
-            # Redraw RPCs for clarity after clearing
-            for rpc in self.rpc_list:
-                z = rpc.height
-                width, length, _ = rpc.dimensions
-
-                vertices = np.array([[0, 0, z],
-                                    [width, 0, z],
-                                    [width, length, z],
-                                    [0, length, z]])
-
-                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-                ax.add_collection3d(poly3d)
-
-            # Filter muons detected within the current frame
-            current_muons = df[df['detection_time_ns'] <= frame]
-
-            for _, muon in current_muons.iterrows():
-                x, y, z = muon['hit_x_position'], muon['hit_y_position'], muon['hit_z_position']
-                muon_index = muon['muon_index']
-                ax.scatter(x, y, z, color='red', label=f'Muon Index: {muon_index}')
-            
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.set_zlabel('Z')
-            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
-            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
-            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
-
-            # Add text annotation for simulation time and muon index if desired
-            ax.annotate(f'Simulation time/ns = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
-
-        # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
-
-        plt.show()
-
 
 if __name__ == "__main__":
     with open("rpc_log.txt", 'w') as log_file:
