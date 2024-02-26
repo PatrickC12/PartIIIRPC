@@ -92,7 +92,7 @@ class muon:
 
         self.hits = []
 
-    def update_position(self,time_step, rpc_list, time):
+    def update_position(self,time_step, rpc_list):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
@@ -101,7 +101,7 @@ class muon:
 
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
-        self.check_hit(time, rpc_list)
+
         
     def check_hit(self,time,rpc_list):
         
@@ -118,7 +118,7 @@ class muon:
             hit_registered = if np.random.rand() < efficiency else 
             self.hits.append([*self.position, time, hit_registered])
     
-    def simulate_path(self,rpc_list, initial_time,time_step, time, theta, phi):
+    def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
         #Append initial position
@@ -139,7 +139,7 @@ class muon:
         while (self.position[2] > min_rpc_height):
 
             T+=dT
-            self.update_position(time_step,rpc_list, time, theta, phi)
+            self.update_position(time_step,rpc_list)
             self.times.append(T)
             self.trajectory.append(self.position)
 
