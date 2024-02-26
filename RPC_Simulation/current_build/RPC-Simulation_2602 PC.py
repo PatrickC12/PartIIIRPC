@@ -19,7 +19,7 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import ImageTk, Image
-import requests
+# import requests
 from io import BytesIO
 
 # Setting the Seaborn theme
