@@ -56,6 +56,7 @@ class RPC:
         pass
 
     def generate_dark(self, runtime):
+
         darkcountdata = []
 
         total_dark_counts = np.random.poisson(self.darkcount * runtime)
@@ -77,7 +78,34 @@ class RPC:
                 "success": 'dark'
             })
         return pd.DataFrame(darkcountdata)
+    
+    def generate_dark_stripped(self, runtime):
+        darkcountdatastripped = []
 
+        total_dark_counts = np.random.poisson(self.darkcount * runtime)
+        
+        for _ in range(total_dark_counts):
+            x_position = np.random.uniform(0, self.dimensions[0])
+            y_position = np.random.uniform(0, self.dimensions[1])
+            
+            x_spacing = self.dimensions[0] / (self.strips[0] - 1)
+            y_spacing = self.dimensions[1] / (self.strips[1] - 1)
+            x_strip = round(x_position / x_spacing) * x_spacing
+            y_strip = round(y_position / y_spacing) * y_spacing
+            detection_time = np.random.uniform(0, runtime)        
+            
+            # Append the dark count info to the darkcount list
+            darkcountdatastripped.append({
+                "velocity": 'Dark',
+                "muon_index": 'Dark',
+                "detected_x_position": x_strip,
+                "detected_y_position": y_strip,
+                "detected_z_position": self.height,
+                "detection_time": detection_time,
+                "success": 'dark'
+            })
+        return pd.DataFrame(darkcountdatastripped)
+    
     #Use GUI interface, generate stack of RPCs, choose gas mixtures and voltages for each. Run simulation of muon count.
         
 class muon:
@@ -138,8 +166,8 @@ class muon:
         init_time = self.times[0]
 
         for rpc in rpc_list:
-            self.x_spacing = self.rpc_dimensions[0] / (rpc.strips[0] - 1)
-            self.y_spacing = self.rpc_dimensions[1] / (rpc.strips[1] - 1)
+            self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
+            self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
             if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:
@@ -693,10 +721,20 @@ class RPCSimulatorApp:
         
         df_detected_muons = pd.DataFrame(detected_muons)
         
-        if self.use_darkcount_var.get() ==True:
-            df_dark = RPC.generate_dark(total_sim_time)
-            df_detected_muons = pd.concat([df_detected_muons, df_dark])
-       
+        if self.use_darkcount_var.get() == True:
+            if self.use_strips_var.get() == False:
+                df_detected_dark_muons = pd.DataFrame([])
+                for rpc in self.rpc_list:  
+                    df_dark = RPC.generate_dark(rpc, total_sim_time)
+                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
+                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
+            else:
+                df_detected_dark_muons = pd.DataFrame([])
+                for rpc in self.rpc_list:  
+                    df_dark = RPC.generate_dark_stripped(rpc, total_sim_time)
+                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
+                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
+                
         self.simulation_finished_dialog(df_detected_muons,muons)
 
 ###################################################################################################################
