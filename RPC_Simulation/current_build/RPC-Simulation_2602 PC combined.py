@@ -569,7 +569,7 @@ class RPCSimulatorApp:
         min_z = min(rpc.height for rpc in self.rpc_list)
         h = max_z - min_z
         # Simplified for demonstration purposes
-        
+    
         theta = np.arccos(np.sqrt(np.random.uniform()))
         phi = np.random.uniform(0, 2 * np.pi)
 
@@ -598,7 +598,6 @@ class RPCSimulatorApp:
             muon_instance, theta, phi= self.generate_muon_at_time(sim_time)
             muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time, theta, phi) # Assume 0.1 ns as the time step for trajectory simulation
             
-
             x_detect = []
             y_detect = []
             z_detect = []
