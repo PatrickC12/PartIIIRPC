@@ -564,7 +564,6 @@ class RPCSimulatorApp:
         self.start_sim_button.pack(pady=5)
     
     def generate_muon_at_time(self, sim_time):
-        # Simplified for demonstration purposes
         position = [0, 0, max(rpc.height for rpc in self.rpc_list)]
         theta = np.arccos(np.sqrt(np.random.uniform()))
         phi = np.random.uniform(0, 2 * np.pi)
