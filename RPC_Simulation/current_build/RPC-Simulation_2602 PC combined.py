@@ -102,7 +102,7 @@ class muon:
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
 
-        
+   
     def check_hit(self,time,rpc_list):
         
         efficiencies = [rpc.efficiency for rpc in rpc_list]
