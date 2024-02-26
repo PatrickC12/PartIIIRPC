@@ -133,10 +133,14 @@ class muon:
         dT = time_step
 
         min_rpc_height = min(rpc.height for rpc in rpc_list)
+        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
+        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
 
         #Stop simulating the muon's trajectory once it's z cooridnate passes 0.5 m below the lowest RPC.
 
-        while (self.position[2] > min_rpc_height):
+        while (self.position[2] > min_rpc_height and
+            -max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
+            -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1):
 
             T+=dT
             self.update_position(time_step)
