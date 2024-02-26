@@ -92,7 +92,7 @@ class muon:
 
         self.hits = []
 
-    def update_position(self,time_step, rpc_list, time):
+    def update_position(self,time_step, rpc_list, time, theta, phi):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
@@ -101,9 +101,9 @@ class muon:
 
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
-        self.check_hit(time, rpc_list)
+        self.check_hit(time, rpc_list, theta, phi)
         
-    def check_hit(self,time,rpc_list):
+    def check_hit(self,time,rpc_list, theta, phi):
         
         efficiency = 1
 
@@ -111,14 +111,14 @@ class muon:
         max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
 
         # Check if muon is within the RPC bounds
-        if (-max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
-        -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1 and
+        if (0 < self.position[0] < max_x_dimension and
+        0< self.position[1] < max_y_dimension and
         min(rpc.height for rpc in rpc_list) < self.position[2] < max(rpc.height for rpc in rpc_list)):
             # Determine if hit is registered based on efficiency
             hit_registered = "Y" if np.random.rand() < efficiency else "N"
             self.hits.append([*self.position, time, hit_registered])
     
-    def simulate_path(self,rpc_list, initial_time,time_step, time):
+    def simulate_path(self,rpc_list, initial_time,time_step, time, theta, phi):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
         #Append initial position
@@ -139,7 +139,7 @@ class muon:
         while (self.position[2] > min_rpc_height):
 
             T+=dT
-            self.update_position(time_step,rpc_list, time)
+            self.update_position(time_step,rpc_list, time, theta, phi)
             self.times.append(T)
             self.trajectory.append(self.position)
 
@@ -586,7 +586,7 @@ class RPCSimulatorApp:
                 break
         
             muon_instance, theta, phi= self.generate_muon_at_time(sim_time)
-            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time) # Assume 0.1 ns as the time step for trajectory simulation
+            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time, theta, phi) # Assume 0.1 ns as the time step for trajectory simulation
             
 
             x_detect = []
@@ -1151,6 +1151,71 @@ class RPCSimulatorApp:
             pt.show()
         except ImportError:
             messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
+
+    def play_video_nano(self, df):
+        # Create a figure and a 3D axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+
+            vertices = np.array([[0, 0, z],
+                                [width, 0, z],
+                                [width, length, z],
+                                [0, length, z]])
+
+            # Define the vertices of the rectangle
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            ax.add_collection3d(poly3d)
+
+        # Simulation time in nanoseconds and number of frames
+        sim_time = int(self.sim_time_var.get())
+        number_of_frames = sim_time
+
+        def update(frame):
+            ax.cla()  # Clear the axis to redraw
+
+            # Redraw RPCs for clarity after clearing
+            for rpc in self.rpc_list:
+                z = rpc.height
+                width, length, _ = rpc.dimensions
+
+                vertices = np.array([[0, 0, z],
+                                    [width, 0, z],
+                                    [width, length, z],
+                                    [0, length, z]])
+
+                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                ax.add_collection3d(poly3d)
+
+            # Filter muons detected within the current frame
+            current_muons = df[df['detection_time_ns'] <= frame]
+
+            for _, muon in current_muons.iterrows():
+                x, y, z = muon['hit_x_position'], muon['hit_y_position'], muon['hit_z_position']
+                muon_index = muon['muon_index']
+                ax.scatter(x, y, z, color='red', label=f'Muon Index: {muon_index}')
+            
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+
+            # Add text annotation for simulation time and muon index if desired
+            ax.annotate(f'Simulation time/ns = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+
+        plt.show()
+
+
 if __name__ == "__main__":
     with open("rpc_log.txt", 'w') as log_file:
         log_file.write('')
