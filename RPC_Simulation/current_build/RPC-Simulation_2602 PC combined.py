@@ -19,7 +19,8 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import ImageTk, Image
-import requests
+# import requests
+import threading
 from io import BytesIO
 
 # Setting the Seaborn theme
@@ -83,13 +84,14 @@ class muon:
         #Add starting frame number for muon trajectory, useful for some plots
 
         self.starting_frame = 0
+        self.hits = []
 
         # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
         # [[x,y,z,t,Y/N],...,[]]
 
         self.hits = []
 
-    def update_position(self,time_step):
+    def update_position(self,time_step, rpc_list):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
@@ -97,19 +99,28 @@ class muon:
         #time_step is in units of nano-seconds ns.
 
         speed_of_light = 0.299792458 # m/ns
-
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
-
-    def check_hit(self,rpc_list):
-
-        #Get efficiency of RPC from rpc_list, use this to decide if a hit is detected or not.
-        pass
+        self.check_hit(time_step, rpc_list)
+        
+    def check_hit(self,time_step,rpc_list):
+        
+        efficiency = 0.9 
+        
+        for rpc in rpc_list:
+            max_x_dimension = (rpc.dimensions[0])
+            max_y_dimension = (rpc.dimensions[1])
+            # Check if muon is within the RPC bounds
+            if (-max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
+            -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1):
+                # Determine if hit is registered based on efficiency
+                hit_registered = "Y" if np.random.rand() < efficiency else "N"
+                self.hits.append([*self.position, time_step, hit_registered])
     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
         #Append initial position
-        self.trajectory.append(np.array(self.position))
+        self.trajectory.append(self.position.copy())
 
         #Running time counter, nanoseconds
         T = initial_time
@@ -120,19 +131,61 @@ class muon:
         dT = time_step
 
         min_rpc_height = min(rpc.height for rpc in rpc_list)
-        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
-        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
 
         #Stop simulating the muon's trajectory once it's z cooridnate passes 0.5 m below the lowest RPC.
 
-        while (self.position[2] > min_rpc_height and
-            -max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
-            -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1):
+        while (self.position[2] > min_rpc_height):
 
             T+=dT
-            self.update_position(time_step)
+            self.update_position(time_step,rpc_list)
             self.times.append(T)
             self.trajectory.append(self.position.copy())
+
+class UltimateSimulation:
+    def __init__(self, muon_flux, sim_time_var, rpc_list):
+        self.muon_flux = muon_flux
+        self.sim_time_var = sim_time_var
+        self.rpc_list = rpc_list
+    
+    def start_simulation(self):
+        total_sim_time = self.sim_time_var
+        detected_muons = []
+        sim_time = 0
+        
+        while sim_time < total_sim_time:
+            time_to_next_muon = -np.log(np.random.uniform()) / self.muon_flux
+            sim_time += time_to_next_muon
+            if sim_time > total_sim_time:
+                break
+        
+            muon_instance = self.generate_muon_at_time(sim_time)
+            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1) # Assume 0.1 ns as the time step for trajectory simulation
+            
+            for hit in muon_instance.hits:  # Assuming 'hits' is populated during simulate_path
+                if hit[-1] == "Y":  # If RPC registers the hit
+                    detected_muons.append({
+                        "x_position": hit[0],
+                        "y_position": hit[1],
+                        "z_position": hit[2],
+                        "detection_time_ns": hit[3],
+                        "velocity": muon_instance.velocity,
+                        "theta": np.arccos(muon_instance.velocity[2] / np.linalg.norm(muon_instance.velocity)),
+                        "phi": np.arctan2(muon_instance.velocity[1], muon_instance.velocity[0])
+                    })
+        df_detected_muons = pd.DataFrame(detected_muons)
+        self.simulation_finished(df_detected_muons)
+    
+    def generate_muon_at_time(self, sim_time):
+        # Simplified for demonstration purposes
+        position = [0, 0, max(rpc.height for rpc in self.rpc_list)]
+        theta = np.arccos(np.sqrt(np.random.uniform()))
+        phi = np.random.uniform(0, 2 * np.pi)
+        velocity = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
+        return muon(position, velocity)
+
+    def simulation_finished(self, df_detected_muons):
+        # Handle the simulation's output for analysis and visualization
+        print(df_detected_muons)
 
 class RPCSimulatorApp:
 
@@ -480,6 +533,7 @@ class RPCSimulatorApp:
                         self.rpc_list.append(rpc)
 
                         print(f"RPC {i} successfully added")
+                        print(self.rpc_list)
 
 ###################################################################################################################
 #3D plot section
@@ -548,9 +602,21 @@ class RPCSimulatorApp:
         self.start_sim_button.pack(pady=5)
         
         # Start simulation button Peter}
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_nanoscale)
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_thread)
         self.start_sim_button.pack(pady=5)
         
+    def start_simulation_thread(self):
+        """Start the simulation in a separate thread to keep the GUI responsive."""
+        simulation_thread = threading.Thread(target=self.start_simulation)
+        simulation_thread.start()    
+    
+    def start_simulation(self):
+        """Function to start the simulation using parameters from the GUI."""
+        muon_flux = self.muon_flux_var.get()  # Get muon flux from GUI
+        sim_time = self.sim_time_var.get()    # Get simulation time from GUI
+        sim = UltimateSimulation(muon_flux=muon_flux, sim_time_var=sim_time, rpc_list=self.rpc_list)
+        sim.start_simulation() 
+         
     def open_advanced_settings(self):
         advanced_window = tk.Toplevel(self.master)
         advanced_window.title("Advanced Settings")
@@ -662,70 +728,6 @@ class RPCSimulatorApp:
         
                     
         self.simulation_finished_dialog(muons)
-        
-    
-    def start_simulation_Peter(self):
-        muons_per_ns = self.num_muons_var.get()  # Expected number of muons per ns
-        total_sim_time = self.sim_time_var.get()  # Total simulation time in ns
-        muon_speed = 0.98  # Fraction of the speed of light
-        speed_of_light = 0.299792458  # Speed of light in m/ns
-        detected_muons = []  # List to store detected muon data
-        sim_time = 0  # Initialize simulation time
-
-        while sim_time < total_sim_time:
-            # Determine the time to the next muon using the inverse transform sampling method
-            time_to_next_muon = -np.log(np.random.uniform()) / muons_per_ns
-            sim_time += time_to_next_muon
-            
-            if sim_time > total_sim_time:
-                break  # Stop the simulation if we've exceeded the total simulation time
-            
-            # At this point, a muon is generated. Proceed with the rest of the simulation.
-            theta = np.arccos(np.sqrt(np.random.uniform()))  # Generate angle theta
-            phi = np.random.uniform(0, 2 * np.pi)  # Generate angle phi
-            
-            # Calculate velocity components
-            speed = speed_of_light * muon_speed
-            vx = speed * np.sin(theta) * np.cos(phi)
-            vy = speed * np.sin(theta) * np.sin(phi)
-            vz = -speed * np.cos(theta)
-            
-            z_lowest = min(rpc.height for rpc in self.rpc_list)
-            
-            z_pos = max(rpc.height for rpc in self.rpc_list)
-            dt = (z_pos - z_lowest) / abs(vz) 
-
-
-            # Generate initial position
-            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list) + vx * dt)
-            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list) + vy * dt)
-            z_pos = max(rpc.height for rpc in self.rpc_list)  # Start just above the highest RPC
-            
-            # Check each RPC for detection
-            for rpc in self.rpc_list:
-                time_to_rpc = (rpc.height - z_pos) / vz if vz != 0 else float('inf')
-                
-                if 0 <= time_to_rpc + sim_time <= total_sim_time:
-                    # Calculate the position at which the muon would intersect the plane of the RPC
-                    x_detect = x_pos - vx * time_to_rpc
-                    y_detect = y_pos - vy * time_to_rpc
-                    
-                    # Check if the muon is within the bounds of the RPC and if it's detected based on the RPC's efficiency
-                    if 0 <= x_detect <= rpc.dimensions[0] and 0 <= y_detect <= rpc.dimensions[1] and np.random.uniform(0, 1) <= rpc.efficiency:
-                        detected_muons.append({
-                            "x_position": x_detect,
-                            "y_position": y_detect,
-                            "z_position_at_detection": rpc.height,
-                            "detection_time_ns": sim_time + time_to_rpc,
-                            "starting_z_position": z_pos,
-                            "initial_velocity": speed,
-                            "theta": theta,
-                            "phi": phi
-                        })
-
-        # Convert detected muons to DataFrame and finish the simulation
-        df_detected_muons = pd.DataFrame(detected_muons)
-        self.simulation_finished_dialog(df_detected_muons)
 
 ###################################################################################################################
 # Second Scale Simulation Section
