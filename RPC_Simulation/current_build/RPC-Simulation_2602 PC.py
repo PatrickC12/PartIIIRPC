@@ -703,6 +703,9 @@ class RPCSimulatorApp:
         self.use_dark_counts_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_dark_counts_var, command=self.toggle_strips)
         self.use_dark_counts_check.pack(pady=5)
 
+        self.plot_trajectory_var = tk.BooleanVar()
+        self.plot_trajectory_check = ttk.Checkbutton(advanced_window, )
+
     def toggle_strips(self):
         togglestrip = self.use_strips_var.get()
         pass
@@ -755,8 +758,8 @@ class RPCSimulatorApp:
 
             #Generate initial position of muon above the RPC plate
 
-            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
-            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
+            x_pos = np.random.uniform(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.05, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
+            y_pos = np.random.uniform(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.05, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
             z_pos = max(rpc.height for rpc in self.rpc_list)
 
             position = [x_pos,y_pos,z_pos]

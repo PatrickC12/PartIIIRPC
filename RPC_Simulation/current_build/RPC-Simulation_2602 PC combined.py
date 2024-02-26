@@ -564,11 +564,20 @@ class RPCSimulatorApp:
         self.start_sim_button.pack(pady=5)
     
     def generate_muon_at_time(self, sim_time):
+
+        max_z = max(rpc.height for rpc in self.rpc_list)
+        min_z = min(rpc.height for rpc in self.rpc_list)
+        h = max_z - min_z
         # Simplified for demonstration purposes
-        position = [0, 0, max(rpc.height for rpc in self.rpc_list)]
+        
         theta = np.arccos(np.sqrt(np.random.uniform()))
         phi = np.random.uniform(0, 2 * np.pi)
+
+        extension = h*np.tan(theta)
+
+        position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in rpc)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in rpc)+extension) , max(rpc.height for rpc in self.rpc_list)]
         velocity = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
+
         return muon(position, velocity), theta, phi
     
     def start_simulation_Peter(self):
@@ -578,9 +587,10 @@ class RPCSimulatorApp:
         detected_muons = []
         sim_time = 0
         muon_index = 0
-        
+
         while sim_time < total_sim_time:
-            time_to_next_muon = -np.log(np.random.uniform()) / muon_flux
+
+            time_to_next_muon = -np.log(1-np.random.uniform()) / muon_flux
             sim_time += time_to_next_muon
             if sim_time > total_sim_time:
                 break
@@ -612,7 +622,9 @@ class RPCSimulatorApp:
                         "muon_index": muon_index,
                         "detected_x_position":x_detect,
                         "detected_y_position":y_detect,
-                        'detected_z_position': z_detect
+                        'detected_z_position': z_detect,
+                        'muon_arrival_time'=time_to_next_muon,
+
                     })
             muon_index += 1
         df_detected_muons = pd.DataFrame(detected_muons)
