@@ -29,7 +29,7 @@ sns.set_theme(style="darkgrid")
 
 class RPC:
 
-    def __init__(self,gas_mixture,efficiency,dimensions, strips, height,voltage):
+    def __init__(self,gas_mixture,efficiency,dimensions, strips, height,voltage, Muon_Potential, darkcount):
 
         self.gas_mixture = gas_mixture
         #Enter gas mixture as array from GUI
@@ -48,6 +48,10 @@ class RPC:
         #Voltage applied across electrodes in the RPC, measured in kV.
         
         self.strips = strips
+        
+        self.Muon_Potential = Muon_Potential
+        
+        self.darkcount = darkcount
 
     def coincidence(self):
     
@@ -88,6 +92,8 @@ class muon:
         self.hits = []
         
         self.detected_5vector = []
+        
+        self.stripped_detected_5vector = []
 
         # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
         # [[x,y,z,t,Y/N],...,[]]
@@ -111,13 +117,33 @@ class muon:
         
         
         for rpc in rpc_list:
-            success = np.random.rand() < rpc.efficiency
+            success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
             if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:    
                 self.detected_5vector.append([self.position[0] - self.velocity[0] * time_to_rpc, self.position[1] - self.velocity[1] * time_to_rpc, rpc.height, init_time + time_to_rpc, success])
             else:
                 self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
-    
+                
+    def stripped_check_hit(self, rpc_list):
+        
+        init_time = self.times[0]
+
+        for rpc in rpc_list:
+            self.x_spacing = self.rpc_dimensions[0] / (rpc.strips[0] - 1)
+            self.y_spacing = self.rpc_dimensions[1] / (rpc.strips[1] - 1)
+            success = "Y" if np.random.rand() < rpc.efficiency else "N"
+            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
+            if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:
+                # Calculate position at the time of potential detection
+                x_pos = self.position[0] + self.velocity[0] * time_to_rpc
+                y_pos = self.position[1] + self.velocity[1] * time_to_rpc
+                # Adjust position to nearest strip point
+                x_strip = round(x_pos / self.x_spacing) * self.x_spacing
+                y_strip = round(y_pos / self.y_spacing) * self.y_spacing
+                self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
+            else:
+                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
+                    
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
@@ -331,6 +357,14 @@ class RPCSimulatorApp:
         self.ys_var_entry = ttk.Entry(rpc_window, textvariable=self.ys_var)
         self.ys_var_entry.pack(pady=5)
         
+        self.darkcount_label = ttk.Label(rpc_window, text="darkcount rate/ns: ")
+        self.darkcount_label.pack(pady=5)
+        self.darkcount = tk.DoubleVar()
+        self.darkcount_entry = ttk.Entry(rpc_window, textvariable=self.darkcount)
+        self.darkcount_entry.pack(pady=5)
+        
+        
+        
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
         self.selected_gases = {gas: (tk.BooleanVar(), tk.DoubleVar()) for gas in self.gases}
@@ -385,8 +419,9 @@ class RPCSimulatorApp:
         strips = [int(self.xs_var.get()), int(self.ys_var.get())]
         efficiency = float(self.efficiency_var.get())
         gas_mixture = {gas: percentage.get() for gas, (selected, percentage) in self.selected_gases.items() if selected.get()}
+        darkcount = float(self.darkcount.get())
         new_rpc = RPC(height=height, efficiency=efficiency,
-                        dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture)
+                        dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture, darkcount=darkcount)
         
         # Add RPC object to the array
         self.rpc_list.append(new_rpc)
@@ -424,6 +459,7 @@ class RPCSimulatorApp:
                             f"Number of strips in y direction = {rpc.strips[1]},\n" \
                             f"RPC Efficiency = {rpc.efficiency},\n" \
                             f"RPC Gas mixture = {rpc.gas_mixture},\n" \
+                            f"Darkcount Rate = {rpc.darkcount},\n" \
                             "\n"
                     
                     log_file.write(log_entry)
@@ -474,7 +510,7 @@ class RPCSimulatorApp:
 
                         rpc = RPC(height=float(filt_item[0]), voltage=float(filt_item[1]), dimensions=[float(filt_item[2]),
                                 float(filt_item[3]), float(filt_item[4])],strips=[int(filt_item[5]), int(filt_item[6])], 
-                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]))
+                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]), darkcount=float(filt_item[9]))
                         self.rpc_list.append(rpc)
 
                         print(f"RPC {i} successfully added")
@@ -491,7 +527,7 @@ class RPCSimulatorApp:
 
                         rpc = RPC(height=float(filt_item[0]), voltage=float(filt_item[1]), dimensions=[float(filt_item[2]),
                                 float(filt_item[3]), float(filt_item[4])],strips=[int(filt_item[5]), int(filt_item[6])], 
-                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]))
+                                efficiency=float(filt_item[7]), gas_mixture=eval(filt_item[8]), darkcount=float(filt_item[9]))
                         self.rpc_list.append(rpc)
 
                         print(f"RPC {i} successfully added")
@@ -616,9 +652,14 @@ class RPCSimulatorApp:
                 break
         
             muon_instance = self.generate_muon_at_time()
-            muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step) 
             
-            muon_instance.check_hit(self.rpc_list)
+            if self.use_paths_var == True:        
+                muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step) 
+            
+            if self.toggle_strips == True:
+                muon_instance.stripped_check_hit
+            else:
+                muon_instance.check_hit(self.rpc_list)
                 
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -633,7 +674,7 @@ class RPCSimulatorApp:
                         })
             muon_index += 1
             muons.append(muon_instance)
-
+        
         df_detected_muons = pd.DataFrame(detected_muons)
        
         self.simulation_finished_dialog(df_detected_muons,muons)
@@ -641,17 +682,24 @@ class RPCSimulatorApp:
     def open_advanced_settings(self):
         advanced_window = tk.Toplevel(self.master)
         advanced_window.title("Advanced Settings")
+        
+        #check if you need to simulate Path
+        self.use_paths_var = tk.BooleanVar(value=True)
+        self.use_paths_check = ttk.Checkbutton(advanced_window, text="Use paths", variable=self.use_paths_var)
+        self.use_paths_check.pack(pady=5)
+
 
         # Checkbox for using strips
         self.use_strips_var = tk.BooleanVar()
-        self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
+        self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var)
         self.use_strips_check.pack(pady=5)
 
         #Add checkbox for enabling dark counts
+        self.use_darkcount_var = tk.BooleanVar()
+        self.use_darkcount_check = ttk.Checkbutton(advanced_window, text="Use darkcount", variable=self.use_darkcount_var)
+        self.use_darkcount_check.pack(pady=5)
 
-    def toggle_strips(self):
-        togglestrip = self.use_strips_var.get()
-        pass
+        toggledark = self.use_darkcount_var.get()
                
     def start_simulation_nanoscale(self):
 
