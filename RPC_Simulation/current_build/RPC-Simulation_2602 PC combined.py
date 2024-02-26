@@ -563,7 +563,7 @@ class RPCSimulatorApp:
         self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_Peter)
         self.start_sim_button.pack(pady=5)
     
-    def generate_muon_at_time(self, sim_time):
+    def generate_muon_at_time(self):
 
         max_z = max(rpc.height for rpc in self.rpc_list)
         min_z = min(rpc.height for rpc in self.rpc_list)
@@ -581,7 +581,7 @@ class RPCSimulatorApp:
 
         extension = h*np.tan(theta)
 
-        position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in rpc)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in rpc)+extension) , max(rpc.height for rpc in self.rpc_list)]
+        position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
         velocity = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
 
         return muon(position, velocity), theta, phi
