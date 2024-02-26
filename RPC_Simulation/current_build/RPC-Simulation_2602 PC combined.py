@@ -570,7 +570,13 @@ class RPCSimulatorApp:
         h = max_z - min_z
         # Simplified for demonstration purposes
     
-        theta = np.arccos(np.sqrt(np.random.uniform()))
+        #Convert continuous probability distribution function into discrete distribution function for zenith angle
+        theta_val = np.linspace(0,np.pi/2,100)
+        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
+        Norm = np.sum(probs)
+        norm_probs = np.multiply(1/Norm,probs)
+
+        theta = np.random.choice(theta_val, probs=norm_probs)
         phi = np.random.uniform(0, 2 * np.pi)
 
         extension = h*np.tan(theta)
@@ -610,6 +616,7 @@ class RPCSimulatorApp:
                 
             for hit in muon_instance.hits:  # Assuming 'hits' is populated during simulate_path
                 if hit[-1] == "Y":  # If RPC registers the hit
+
                     detected_muons.append({
                         "hit_x_position": hit[0],
                         "hit_y_position": hit[1],
@@ -621,8 +628,8 @@ class RPCSimulatorApp:
                         "muon_index": muon_index,
                         "detected_x_position":x_detect,
                         "detected_y_position":y_detect,
-                        'detected_z_position': z_detect,
-                        'muon_arrival_time'=time_to_next_muon,
+                        "detected_z_position": z_detect,
+                        "muon_arrival_time": time_to_next_muon,
 
                     })
             muon_index += 1
