@@ -401,9 +401,15 @@ class RPCSimulatorApp:
             vy = speed * np.sin(theta) * np.sin(phi)
             vz = -speed * np.cos(theta)
             
+            z_lowest = min(rpc.height for rpc in self.rpc_list)
+            
+            z_pos = max(rpc.height for rpc in self.rpc_list)
+            dt = (z_pos - z_lowest) / abs(vz) 
+
+
             # Generate initial position
-            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list))
-            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list))
+            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list) + vx * dt)
+            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list) + vy * dt)
             z_pos = max(rpc.height for rpc in self.rpc_list)  # Start just above the highest RPC
             
             # Check each RPC for detection
@@ -412,8 +418,8 @@ class RPCSimulatorApp:
                 
                 if 0 <= time_to_rpc + sim_time <= total_sim_time:
                     # Calculate the position at which the muon would intersect the plane of the RPC
-                    x_detect = x_pos + vx * time_to_rpc
-                    y_detect = y_pos + vy * time_to_rpc
+                    x_detect = x_pos - vx * time_to_rpc
+                    y_detect = y_pos - vy * time_to_rpc
                     
                     # Check if the muon is within the bounds of the RPC and if it's detected based on the RPC's efficiency
                     if 0 <= x_detect <= rpc.dimensions[0] and 0 <= y_detect <= rpc.dimensions[1] and np.random.uniform(0, 1) <= rpc.efficiency:

@@ -20,7 +20,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import ImageTk, Image
 # import requests
+import threading
 from io import BytesIO
+import queue
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -71,7 +73,7 @@ class muon:
     def __init__(self,position,velocity):
 
         #[x,y,z] coordinates of muon
-        self.position = position
+        self.position = np.array(position)
         #List of [v_x,v_y,v_z] velocity components of muon. In units of c.
         self.velocity = velocity
 
@@ -83,13 +85,14 @@ class muon:
         #Add starting frame number for muon trajectory, useful for some plots
 
         self.starting_frame = 0
+        self.hits = []
 
         # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
         # [[x,y,z,t,Y/N],...,[]]
 
         self.hits = []
 
-    def update_position(self,time_step):
+    def update_position(self,time_step, rpc_list, time, theta, phi):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
@@ -97,19 +100,29 @@ class muon:
         #time_step is in units of nano-seconds ns.
 
         speed_of_light = 0.299792458 # m/ns
-
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
+        self.check_hit(time, rpc_list, theta, phi)
+        
+    def check_hit(self,time,rpc_list, theta, phi):
+        
+        efficiency = 1
 
-    def check_hit(self,rpc_list):
+        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
+        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
 
-        #Get efficiency of RPC from rpc_list, use this to decide if a hit is detected or not.
-        pass
+        # Check if muon is within the RPC bounds
+        if (0 < self.position[0] < max_x_dimension and
+        0< self.position[1] < max_y_dimension and
+        min(rpc.height for rpc in rpc_list) < self.position[2] < max(rpc.height for rpc in rpc_list)):
+            # Determine if hit is registered based on efficiency
+            hit_registered = "Y" if np.random.rand() < efficiency else "N"
+            self.hits.append([*self.position, time, hit_registered])
     
-    def simulate_path(self,rpc_list, initial_time,time_step):
+    def simulate_path(self,rpc_list, initial_time,time_step, time, theta, phi):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
         #Append initial position
-        self.trajectory.append(np.array(self.position))
+        self.trajectory.append(self.position.copy())
 
         #Running time counter, nanoseconds
         T = initial_time
@@ -120,19 +133,15 @@ class muon:
         dT = time_step
 
         min_rpc_height = min(rpc.height for rpc in rpc_list)
-        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
-        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
 
         #Stop simulating the muon's trajectory once it's z cooridnate passes 0.5 m below the lowest RPC.
 
-        while (self.position[2] > min_rpc_height and
-            -max_x_dimension * 0.1 < self.position[0] < max_x_dimension * 1.1 and
-            -max_y_dimension * 0.1 < self.position[1] < max_y_dimension * 1.1):
+        while (self.position[2] > min_rpc_height):
 
             T+=dT
-            self.update_position(time_step)
+            self.update_position(time_step,rpc_list, time, theta, phi)
             self.times.append(T)
-            self.trajectory.append(self.position.copy())
+            self.trajectory.append(self.position)
 
 class RPCSimulatorApp:
 
@@ -187,6 +196,8 @@ class RPCSimulatorApp:
 
         self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate decaying LLNP (WIP)',font = 30)
         self.nanoscale_sim_desc.pack(pady=10) 
+        
+        self.queue = queue.Queue()
 
     def run_simulation(self):
         
@@ -480,6 +491,7 @@ class RPCSimulatorApp:
                         self.rpc_list.append(rpc)
 
                         print(f"RPC {i} successfully added")
+                        print(self.rpc_list)
 
 ###################################################################################################################
 #3D plot section
@@ -543,10 +555,69 @@ class RPCSimulatorApp:
         self.adv_settings_button = ttk.Button(simulation_window, text="Advanced Settings", command=self.open_advanced_settings)
         self.adv_settings_button.pack(pady=5)
 
-        # Start simulation button
+        # Start simulation button Patrick
         self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_nanoscale)
         self.start_sim_button.pack(pady=5)
         
+        # Start simulation button Peter}
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_Peter)
+        self.start_sim_button.pack(pady=5)
+    
+    def generate_muon_at_time(self, sim_time):
+        # Simplified for demonstration purposes
+        position = [0, 0, max(rpc.height for rpc in self.rpc_list)]
+        theta = np.arccos(np.sqrt(np.random.uniform()))
+        phi = np.random.uniform(0, 2 * np.pi)
+        velocity = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
+        return muon(position, velocity), theta, phi
+    
+    def start_simulation_Peter(self):
+        """Function to start the simulation using parameters from the GUI."""
+        muon_flux = self.muon_flux_var.get()  # Get muon flux from GUI
+        total_sim_time = self.sim_time_var.get()
+        detected_muons = []
+        sim_time = 0
+        muon_index = 0
+        
+        while sim_time < total_sim_time:
+            time_to_next_muon = -np.log(np.random.uniform()) / muon_flux
+            sim_time += time_to_next_muon
+            if sim_time > total_sim_time:
+                break
+        
+            muon_instance, theta, phi= self.generate_muon_at_time(sim_time)
+            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time, theta, phi) # Assume 0.1 ns as the time step for trajectory simulation
+            
+
+            x_detect = []
+            y_detect = []
+            z_detect = []
+            
+            for rpc in self.rpc_list:
+                time_to_rpc = (rpc.height - max(rpc.height for rpc in self.rpc_list)) / muon_instance.velocity[2] if muon_instance.velocity[2] != 0 else float('inf')
+                x_detect.append(muon_instance.position[0] - muon_instance.velocity[0] * time_to_rpc)
+                y_detect.append(muon_instance.position[1] - muon_instance.velocity[1] * time_to_rpc)
+                z_detect.append(rpc.height)
+                
+            for hit in muon_instance.hits:  # Assuming 'hits' is populated during simulate_path
+                if hit[-1] == "Y":  # If RPC registers the hit
+                    detected_muons.append({
+                        "hit_x_position": hit[0],
+                        "hit_y_position": hit[1],
+                        "hit_z_position": hit[2],
+                        "detection_time_ns": hit[3],
+                        "velocity": muon_instance.velocity,
+                        "theta": theta,
+                        "phi": phi,
+                        "muon_index": muon_index,
+                        "detected_x_position":x_detect,
+                        "detected_y_position":y_detect,
+                        'detected_z_position': z_detect
+                    })
+            muon_index += 1
+        df_detected_muons = pd.DataFrame(detected_muons)
+        self.simulation_finished_dialog_Peter(df_detected_muons)
+         
     def open_advanced_settings(self):
         advanced_window = tk.Toplevel(self.master)
         advanced_window.title("Advanced Settings")
@@ -654,6 +725,8 @@ class RPCSimulatorApp:
                     muons.append(generated_muon)
 
         #Now pass on the generated list of muon trajectories to the simulation result section
+        
+        
                     
         self.simulation_finished_dialog(muons)
 
@@ -787,6 +860,9 @@ class RPCSimulatorApp:
         dialog_window = tk.Toplevel(self.master)
         dialog_window.title(f"Simulation Finished")
 
+        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(muons))
+        view_data_button.pack(pady=5)
+
         dialog_window_desc = tk.Label(dialog_window, text=f'{len(muons)} muons generated')
         dialog_window_desc.pack(padx=30, pady=30)
 
@@ -800,7 +876,7 @@ class RPCSimulatorApp:
         
         play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(muons))
         play_video_button.pack(pady=5)
-
+        
     def play_video(self,muons):
 
         #Select video player format if nanoscale or norm scale simulation.
@@ -1040,6 +1116,105 @@ class RPCSimulatorApp:
 
     def calc_efficiencies(self):
         pass
+###################################################################################################################
+#Simulation Peter section
+###################################################################################################################
+    def simulation_finished_dialog_Peter(self, df_detected_muons):
+        dialog_window = tk.Toplevel(self.master)
+        dialog_window.title("Simulation Finished")
+
+        # Button to view data in DataFrame
+        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_detected_muons))
+        view_data_button.pack(pady=5)
+
+        # Button to plot data on 3D plot
+        plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(df_detected_muons))
+        plot_data_button.pack(pady=5)
+
+        # Button to save data into a CSV (redundant since data is already saved, but added for completeness)
+        save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_detected_muons))
+        save_data_button.pack(pady=5)
+        
+        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(df_detected_muons))
+        play_video_button.pack(pady=5)
+            
+    def view_data(self, df):
+        if df.empty:
+            messagebox.showinfo("No Data", "No muons were detected during the simulation.")
+            return
+
+        try:
+            from pandastable import Table
+            data_window = tk.Toplevel(self.master)
+            data_window.title("Detected Muons Data")
+            pt = Table(data_window, dataframe=df)
+            pt.show()
+        except ImportError:
+            messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
+
+    def play_video_nano(self, df):
+        # Create a figure and a 3D axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+
+            vertices = np.array([[0, 0, z],
+                                [width, 0, z],
+                                [width, length, z],
+                                [0, length, z]])
+
+            # Define the vertices of the rectangle
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            ax.add_collection3d(poly3d)
+
+        # Simulation time in nanoseconds and number of frames
+        sim_time = int(self.sim_time_var.get())
+        number_of_frames = sim_time
+
+        def update(frame):
+            ax.cla()  # Clear the axis to redraw
+
+            # Redraw RPCs for clarity after clearing
+            for rpc in self.rpc_list:
+                z = rpc.height
+                width, length, _ = rpc.dimensions
+
+                vertices = np.array([[0, 0, z],
+                                    [width, 0, z],
+                                    [width, length, z],
+                                    [0, length, z]])
+
+                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                ax.add_collection3d(poly3d)
+
+            # Filter muons detected within the current frame
+            current_muons = df[df['detection_time_ns'] <= frame]
+
+            for _, muon in current_muons.iterrows():
+                x, y, z = muon['hit_x_position'], muon['hit_y_position'], muon['hit_z_position']
+                muon_index = muon['muon_index']
+                ax.scatter(x, y, z, color='red', label=f'Muon Index: {muon_index}')
+            
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+
+            # Add text annotation for simulation time and muon index if desired
+            ax.annotate(f'Simulation time/ns = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+
+        plt.show()
+
 
 if __name__ == "__main__":
     with open("rpc_log.txt", 'w') as log_file:
@@ -1055,8 +1230,6 @@ if __name__ == "__main__":
         # plot_detected_muons function should plot muon trajectories of tagged muons.
         # Improve RPC updating widget and RPC text files. Make this more user friendly.
         # Gaussian voltage distribution, overlap with detector strips. Threshold
-        # Generate muon velocity from energy distribution.
-        # Plot muon time distribution, see if it reproduces the poisson distribution.
 
 
 
