@@ -156,6 +156,13 @@ class RPCSimulatorApp:
         self.banner = ttk.Label(self.frame, image= self.img_tk)
         self.banner.pack(side='top',pady= 20)
 
+        self.img2 = Image.open(current_directory + "\RPC_Simulation\images\wip.jpg")
+        self.img2 = self.img2.resize((300,120))
+        self.img_tk2 = ImageTk.PhotoImage(self.img2)
+
+        self.banner = ttk.Label(self.frame, image= self.img_tk2)
+        self.banner.pack(side='bottom',pady= 20)
+
         # Button to start generating RPC list
         self.rpc_list = []
 
