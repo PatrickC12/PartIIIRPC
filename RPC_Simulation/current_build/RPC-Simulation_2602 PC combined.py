@@ -94,7 +94,7 @@ class muon:
 
         self.hits = []
 
-    def update_position(self,time_step, rpc_list):
+    def update_position(self,time_step):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
