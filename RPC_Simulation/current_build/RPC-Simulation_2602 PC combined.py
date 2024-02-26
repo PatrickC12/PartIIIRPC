@@ -86,6 +86,8 @@ class muon:
 
         self.starting_frame = 0
         self.hits = []
+        
+        self.detected_5vector = []
 
         # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
         # [[x,y,z,t,Y/N],...,[]]
@@ -102,21 +104,19 @@ class muon:
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
 
-   
-    def check_hit(self,time,rpc_list):
         
-        efficiencies = [rpc.efficiency for rpc in rpc_list]
-
-        max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
-        max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
-
-        # Check if muon is within the RPC bounds
-        if (0 < self.position[0] < max_x_dimension and
-        0< self.position[1] < max_y_dimension and
-        min(rpc.height for rpc in rpc_list) < self.position[2] < max(rpc.height for rpc in rpc_list)):
-            # Determine if hit is registered based on efficiency
-            hit_registered = if np.random.rand() < efficiency else 
-            self.hits.append([*self.position, time, hit_registered])
+    def check_hit(self,rpc_list):
+        
+        init_time = self.times[0]
+        
+        
+        for rpc in rpc_list:
+            success = np.random.rand() < rpc.efficiency
+            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
+            if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:    
+                self.detected_5vector.append([self.position[0] - self.velocity[0] * time_to_rpc, self.position[1] - self.velocity[1] * time_to_rpc, rpc.height, init_time + time_to_rpc, success])
+            else:
+                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
@@ -577,13 +577,13 @@ class RPCSimulatorApp:
         Norm = np.sum(probs)
         norm_probs = np.multiply(1/Norm,probs)
 
-        theta = np.random.choice(theta_val, probs=norm_probs)
+        theta = np.random.choice(theta_val, p=norm_probs)
         phi = np.random.uniform(0, 2 * np.pi)
 
         extension = h*np.tan(theta)
 
         position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
-        velocity = 0.98*[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
+        velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
 
         return muon(position, velocity)
     
@@ -594,6 +594,8 @@ class RPCSimulatorApp:
         detected_muons = []
         sim_time = 0
         muon_index = 0
+        
+        traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
         while sim_time < total_sim_time:
 
@@ -603,34 +605,21 @@ class RPCSimulatorApp:
                 break
         
             muon_instance = self.generate_muon_at_time()
-            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time) # Assume 0.1 ns as the time step for trajectory simulation
+            muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step) 
             
-            x_detect = []
-            y_detect = []
-            z_detect = []
-            
-            for rpc in self.rpc_list:
-                time_to_rpc = (rpc.height - max(rpc.height for rpc in self.rpc_list)) / muon_instance.velocity[2] if muon_instance.velocity[2] != 0 else float('inf')
-                x_detect.append(muon_instance.position[0] - muon_instance.velocity[0] * time_to_rpc)
-                y_detect.append(muon_instance.position[1] - muon_instance.velocity[1] * time_to_rpc)
-                z_detect.append(rpc.height)
+            muon_instance.check_hit(self.rpc_list)
                 
-            for hit in muon_instance.hits:  # Assuming 'hits' is populated during simulate_path
-                if hit[-1] == "Y":  # If RPC registers the hit
+            for x in muon_instance.detected_5vector:
+                detected_muons.append({
+                    "velocity": muon_instance.velocity,
+                    "muon_index": muon_index,
+                    "detected_x_position":x[0],
+                    "detected_y_position":x[1],
+                    "detected_z_position": x[2],
+                    "detection_time": x[3],
+                    "success":x[4]
 
-                    detected_muons.append({
-                        "hit_x_position": hit[0],
-                        "hit_y_position": hit[1],
-                        "hit_z_position": hit[2],
-                        "detection_time_ns": hit[3],
-                        "velocity": muon_instance.velocity,
-                        "muon_index": muon_index,
-                        "detected_x_position":x_detect,
-                        "detected_y_position":y_detect,
-                        "detected_z_position": z_detect,
-                        "muon_arrival_time": time_to_next_muon,
-
-                    })
+                        })
             muon_index += 1
         df_detected_muons = pd.DataFrame(detected_muons)
         self.simulation_finished_dialog_Peter(df_detected_muons)
