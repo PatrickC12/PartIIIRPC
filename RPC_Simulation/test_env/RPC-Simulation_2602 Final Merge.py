@@ -163,8 +163,8 @@ class muon:
         init_time = self.times[0]
 
         for rpc in rpc_list:
-            self.x_spacing = self.rpc_dimensions[0] / (rpc.strips[0] - 1)
-            self.y_spacing = self.rpc_dimensions[1] / (rpc.strips[1] - 1)
+            self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
+            self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
             if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:
