@@ -139,7 +139,7 @@ class muon:
         while (self.position[2] > min_rpc_height):
 
             T+=dT
-            self.update_position(time_step,rpc_list)
+            self.update_position(time_step)
             self.times.append(T)
             self.trajectory.append(self.position)
 
@@ -589,17 +589,24 @@ class RPCSimulatorApp:
     
     def start_simulation_Peter(self):
         """Function to start the simulation using parameters from the GUI."""
-        muon_flux = self.muon_flux_var.get()  # Get muon flux from GUI
         total_sim_time = self.sim_time_var.get()
         detected_muons = []
+        muons = []
         sim_time = 0
         muon_index = 0
+
+        #Muon flux, muon_flux_var is measured in /cm^2/ns
+        muons_flux = self.muon_flux_var.get()
+        #Now calculate the expected muon rate given the dimensions of the problem.
+        area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025
+        #Now calculate the average rate of muon arrival given the problem specifics.    
+        rate = muons_flux*area_m2*(1e4)
         
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
         while sim_time < total_sim_time:
 
-            time_to_next_muon = -np.log(1-np.random.uniform()) / muon_flux
+            time_to_next_muon = -np.log(1-np.random.uniform()) / rate
             sim_time += time_to_next_muon
             if sim_time > total_sim_time:
                 break
@@ -621,8 +628,11 @@ class RPCSimulatorApp:
 
                         })
             muon_index += 1
+            muons.append(muon_instance)
+
         df_detected_muons = pd.DataFrame(detected_muons)
-        self.simulation_finished_dialog_Peter(df_detected_muons)
+       
+        self.simulation_finished_dialog(df_detected_muons,muons)
          
     def open_advanced_settings(self):
         advanced_window = tk.Toplevel(self.master)
@@ -861,12 +871,12 @@ class RPCSimulatorApp:
 ###################################################################################################################
 #Simulation result section
 ###################################################################################################################
-    def simulation_finished_dialog(self, muons):
+    def simulation_finished_dialog(self, df_selected_muons,muons):
 
         dialog_window = tk.Toplevel(self.master)
         dialog_window.title(f"Simulation Finished")
 
-        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(muons))
+        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_selected_muons))
         view_data_button.pack(pady=5)
 
         dialog_window_desc = tk.Label(dialog_window, text=f'{len(muons)} muons generated')
@@ -890,6 +900,20 @@ class RPCSimulatorApp:
             self.play_video_nano(muons)
         else:
             self.play_video_norm(muons)
+
+    def view_data(self, df):
+        if df.empty:
+            messagebox.showinfo("No Data", "No muons were detected during the simulation.")
+            return
+
+        try:
+            from pandastable import Table
+            data_window = tk.Toplevel(self.master)
+            data_window.title("Detected Muons Data")
+            pt = Table(data_window, dataframe=df)
+            pt.show()
+        except ImportError:
+            messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
 
     def plot_detected_muons(self, df):
         self.plot_stations_3d(df)
@@ -1122,41 +1146,6 @@ class RPCSimulatorApp:
 
     def calc_efficiencies(self):
         pass
-###################################################################################################################
-#Simulation Peter section
-###################################################################################################################
-    def simulation_finished_dialog_Peter(self, df_detected_muons):
-        dialog_window = tk.Toplevel(self.master)
-        dialog_window.title("Simulation Finished")
-
-        # Button to view data in DataFrame
-        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_detected_muons))
-        view_data_button.pack(pady=5)
-
-        # Button to plot data on 3D plot
-        plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(df_detected_muons))
-        plot_data_button.pack(pady=5)
-
-        # Button to save data into a CSV (redundant since data is already saved, but added for completeness)
-        save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_detected_muons))
-        save_data_button.pack(pady=5)
-        
-        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video_nano(df_detected_muons))
-        play_video_button.pack(pady=5)
-            
-    def view_data(self, df):
-        if df.empty:
-            messagebox.showinfo("No Data", "No muons were detected during the simulation.")
-            return
-
-        try:
-            from pandastable import Table
-            data_window = tk.Toplevel(self.master)
-            data_window.title("Detected Muons Data")
-            pt = Table(data_window, dataframe=df)
-            pt.show()
-        except ImportError:
-            messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
 
 if __name__ == "__main__":
     with open("rpc_log.txt", 'w') as log_file:
