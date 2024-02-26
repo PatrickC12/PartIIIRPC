@@ -31,29 +31,26 @@ class RPC:
 
     def __init__(self,gas_mixture,efficiency,dimensions, strips, height,voltage, darkcount):
 
-        self.gas_mixture = gas_mixture
         #Enter gas mixture as array from GUI
-
-        self.efficiency = efficiency
+        self.gas_mixture = gas_mixture
+        
         #Enter empirically determined efficiency of RPC
+        self.efficiency = efficiency
+        
         #Clustering ?
-
-        self.dimensions = dimensions
         #Dimensions of RPC in metres
-
-        self.height = height
+        self.dimensions = dimensions
+        
         #Z position of this specific RPC.
-
-        self.voltage = voltage
+        self.height = height
+        
         #Voltage applied across electrodes in the RPC, measured in kV.
+        self.voltage = voltage
         
         self.strips = strips
         
-        
         self.darkcount = darkcount
         
-        
-
     def coincidence(self):
     
         pass
@@ -80,14 +77,6 @@ class RPC:
                 "success": 'dark'
             })
         return pd.DataFrame(darkcountdata)
-
-    #RPC will have attributes of dimensions, efficiency, gas mixture etc...
-    #Use Garfield++ to find breakdown voltages of gas mixture
-    #Experimentally determine which breakdown voltage would be good to use. 
-
-    #Prompt for gas mixture, prompt for voltage for each detector would be good. 
-    #Coordinates for RPCs.
-
 
     #Use GUI interface, generate stack of RPCs, choose gas mixtures and voltages for each. Run simulation of muon count.
         
@@ -247,7 +236,6 @@ class RPCSimulatorApp:
         
         self.queue = queue.Queue()
 
-
     def run_simulation(self):
         
         #Check that an RPC loadout has been selected.
@@ -262,8 +250,7 @@ class RPCSimulatorApp:
                 self.run_simulation_window_nano()
             else:
                 self.run_simulation_window_norm()
-
-    
+   
 ###################################################################################################################
 #RPC Management Section
 ###Mange_RPC panel is quite shite... could do with an upgrade todo ######
@@ -381,8 +368,6 @@ class RPCSimulatorApp:
         self.darkcount = tk.DoubleVar()
         self.darkcount_entry = ttk.Entry(rpc_window, textvariable=self.darkcount)
         self.darkcount_entry.pack(pady=5)
-        
-        
         
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
@@ -591,6 +576,7 @@ class RPCSimulatorApp:
 ###################################################################################################################
 # Nanosecond Scale Simulation Section
 ################################################################################################################### 
+        
     def run_simulation_window_nano(self):
 
         simulation_window = tk.Toplevel(self.master)
@@ -609,17 +595,24 @@ class RPCSimulatorApp:
         self.sim_time_var = tk.DoubleVar()
         self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
         self.sim_time_entry.pack(pady=5)
-        
-        # Advanced settings button
-        self.adv_settings_button = ttk.Button(simulation_window, text="Advanced Settings", command=self.open_advanced_settings)
-        self.adv_settings_button.pack(pady=5)
 
-        # Start simulation button Patrick
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_nanoscale)
-        self.start_sim_button.pack(pady=5)
+        #check if you need to simulate Path
+        self.use_paths_var = tk.BooleanVar(value=True)
+        self.use_paths_check = ttk.Checkbutton(simulation_window, text="Use paths", variable=self.use_paths_var)
+        self.use_paths_check.pack(pady=5)
+
+        # Checkbox for using strips
+        self.use_strips_var = tk.BooleanVar()
+        self.use_strips_check = ttk.Checkbutton(simulation_window, text="Use strips", variable=self.use_strips_var)
+        self.use_strips_check.pack(pady=5)
+
+        #Add checkbox for enabling dark counts
+        self.use_darkcount_var = tk.BooleanVar()
+        self.use_darkcount_check = ttk.Checkbutton(simulation_window, text="Use darkcount", variable=self.use_darkcount_var)
+        self.use_darkcount_check.pack(pady=5)
         
-        # Start simulation button Peter}
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_Peter)
+        # Start simulation button combined
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_combinednano)
         self.start_sim_button.pack(pady=5)
     
     def generate_muon_at_time(self):
@@ -645,29 +638,11 @@ class RPCSimulatorApp:
         velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
 
         return muon(position, velocity)
-    
-    def open_advanced_settings(self):
-        advanced_window = tk.Toplevel(self.master)
-        advanced_window.title("Advanced Settings")
-        
-        #check if you need to simulate Path
-        self.use_paths_var = tk.BooleanVar(value=True)
-        self.use_paths_check = ttk.Checkbutton(advanced_window, text="Use paths", variable=self.use_paths_var)
-        self.use_paths_check.pack(pady=5)
+      
+    def start_simulation_combinednano(self):
 
-
-        # Checkbox for using strips
-        self.use_strips_var = tk.BooleanVar()
-        self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var)
-        self.use_strips_check.pack(pady=5)
-
-        #Add checkbox for enabling dark counts
-        self.use_darkcount_var = tk.BooleanVar()
-        self.use_darkcount_check = ttk.Checkbutton(advanced_window, text="Use darkcount", variable=self.use_darkcount_var)
-        self.use_darkcount_check.pack(pady=5)
-        
-    def start_simulation_Peter(self):
         """Function to start the simulation using parameters from the GUI."""
+
         total_sim_time = self.sim_time_var.get()
         detected_muons = []
         muons = []
@@ -714,8 +689,6 @@ class RPCSimulatorApp:
             muon_index += 1
             muons.append(muon_instance)
         
-                
-        
         df_detected_muons = pd.DataFrame(detected_muons)
         
         if self.use_darkcount_var.get() ==True:
@@ -723,154 +696,54 @@ class RPCSimulatorApp:
             df_detected_muons = pd.concat([df_detected_muons, df_dark])
        
         self.simulation_finished_dialog(df_detected_muons,muons)
-    def start_simulation_nanoscale(self):
-
-        ##Nanoscale algorithm uses ineffecient timestep method. Here I simulate all steps regardless of whether a muon is generated or not.
-        ##I would like to update this algorithm at some point, rather draw the time t for 1 event to occur from a poisson distribution and jump to that
-        #step.
-
-        #Muon flux, muon_flux_var is measured in /cm^2/ns
-        muons_flux = self.muon_flux_var.get()
-        #Now calculate the expected muon rate given the dimensions of the problem.
-        area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025
-        #Now calculate the average rate of muon arrival given the problem specifics.    
-        rate = muons_flux*area_m2*(1e4)
-
-        #sim_time in nanoseconds
-        sim_time_ns = self.sim_time_var.get()
-
-        #Create empty area of muons to populate:
-
-        muons = []
-    
-        #Generate Muons at rate given by poisson distribution.
-        #Each time step generate certain number of muons.
-
-        #Trajectory simulator time step (in nanosceonds).
-        #Timescale always shorter than the vertical passage time of straight down muon through RPC plates, this hopefully means all muons have
-        #chance to be detected by simulation.
-
-        traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
-
-        #Convert continuous probability distribution function into discrete distribution function for zenith angle
-        theta_val = np.linspace(0,np.pi/2,100)
-        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
-        Norm = np.sum(probs)
-        norm_probs = np.multiply(1/Norm,probs)
-
-        for ns in range(int(sim_time_ns)):
-
-            """ if ns%(1e6) == 0:
-                t = ns/(1e9)
-                print(f"Time elapse = {t} seconds") """
-            
-            ##Generate new muons in this time step###
-            # Num_muons_generated is number of new muons, this is drawn from a Poissonian distribution
-
-            #Problem, could pass through an RPC in a single time step and hence be missed...
-            #Ideas, generate muon at timestep ns. 
-            #Extrapolate the muons behaviour until it reaches some z coordinate below the lowest RPC.
-
-            #Scaling muon arrival rate to time step (1ns)
-
-            scaled_rate = rate
-
-            #Generate a certain number of muons in this time step, drawn from a Poisson distribution.
-
-            num_muons_generated = np.random.poisson(scaled_rate)
-
-            if num_muons_generated == 0:
-                #If no muons produced in this time step, skip the time step to the next one.
-                continue
-            else:
-                #For each muon generated in this time step:
-                #Simulate its trajectory until it passes under a certain z value (eg 1m below the height of the lowest RPC plate)
-                for i in range(num_muons_generated):
-
-                    #Generate initial position of muon above the RPC plate
-
-                    x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
-                    y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
-                    z_pos = max(rpc.height for rpc in self.rpc_list)
-
-                    position = [x_pos,y_pos,z_pos]
-
-                    #####Generate velocity of muon, cos^2(theta) distribution for angle.
-
-                    phi = np.random.uniform(0,2*np.pi)
-
-                    #Generating discrete distribution for zenith angle of muon.
-
-                    theta = np.random.choice(theta_val,p=norm_probs)
-
-                    #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
-
-                    velocity = np.multiply(0.98,[np.sin(theta)*np.cos(phi),np.sin(theta)*np.sin(phi),-np.cos(theta)])
-                    
-                    #Create object of class muon with these randomly generated velocities and positions.
-                    generated_muon = muon(position=position, velocity= velocity)
-
-                    generated_muon.simulate_path(self.rpc_list,initial_time=ns,time_step=traj_time_step)
-
-                    muons.append(generated_muon)
-
-        #Now pass on the generated list of muon trajectories to the simulation result section
-        
-        
-                    
-        self.simulation_finished_dialog(muons)
 
 ###################################################################################################################
 # Second Scale Simulation Section
 ################################################################################################################### 
-    # def run_simulation_window_norm(self):
-
-    #     simulation_window = tk.Toplevel(self.master)
-    #     simulation_window.title("Second Scale Simulation Settings")
-
-    #     # Number of muons
-    #     self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/s: ")
-    #     self.muon_flux_label.pack(pady=5)
-    #     self.muon_flux_var = tk.DoubleVar()
-    #     self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
-    #     self.muon_flux_entry.pack(pady=5)
-
-    #     # Simulation time in ns
-    #     self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (s):")
-    #     self.sim_time_label.pack(pady=5)
-    #     self.sim_time_var = tk.DoubleVar()
-    #     self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
-    #     self.sim_time_entry.pack(pady=5)
         
-    #     # Advanced settings button
-    #     self.adv_settings_button = ttk.Button(simulation_window, text="Advanced Settings", command=self.open_advanced_settings)
-    #     self.adv_settings_button.pack(pady=5)
+    def run_simulation_window_norm(self):
 
-    #     # Start simulation button
-    #     self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_normscale)
-    #     self.start_sim_button.pack(pady=5)
-        
-    # def open_advanced_settings(self):
+        simulation_window = tk.Toplevel(self.master)
+        simulation_window.title("Second Scale Simulation Settings")
 
-    #     advanced_window = tk.Toplevel(self.master)
-    #     advanced_window.title("Advanced Settings")
+        # Number of muons
+        self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/s: ")
+        self.muon_flux_label.pack(pady=5)
+        self.muon_flux_var = tk.DoubleVar()
+        self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
+        self.muon_flux_entry.pack(pady=5)
 
-    #     # Checkbox for using strips
-    #     self.use_strips_var = tk.BooleanVar()
-    #     self.use_strips_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_strips_var, command=self.toggle_strips)
-    #     self.use_strips_check.pack(pady=5)
+        # Simulation time in s
+        self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (s):")
+        self.sim_time_label.pack(pady=5)
+        self.sim_time_var = tk.DoubleVar()
+        self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
+        self.sim_time_entry.pack(pady=5)
 
-    #     #Add checkbox for enabling dark counts
+        #check if you need to simulate Path
+        self.use_paths_var = tk.BooleanVar(value=True)
+        self.use_paths_check = ttk.Checkbutton(simulation_window, text="Use paths", variable=self.use_paths_var)
+        self.use_paths_check.pack(pady=5)
 
-    #     self.use_dark_counts_var = tk.BooleanVar()
-    #     self.use_dark_counts_check = ttk.Checkbutton(advanced_window, text="Use strips", variable=self.use_dark_counts_var, command=self.toggle_strips)
-    #     self.use_dark_counts_check.pack(pady=5)
+        # Checkbox for using strips
+        self.use_strips_var = tk.BooleanVar()
+        self.use_strips_check = ttk.Checkbutton(simulation_window, text="Use strips", variable=self.use_strips_var)
+        self.use_strips_check.pack(pady=5)
 
-    # def toggle_strips(self):
-    #     togglestrip = self.use_strips_var.get()
-    #     pass
-               
-    # def start_simulation_normscale(self):
+        #Add checkbox for enabling dark counts
+        self.use_darkcount_var = tk.BooleanVar()
+        self.use_darkcount_check = ttk.Checkbutton(simulation_window, text="Use darkcount", variable=self.use_darkcount_var)
+        self.use_darkcount_check.pack(pady=5)
+
+        # Start simulation button
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_normscale)
+        self.start_sim_button.pack(pady=5)
+
+    def toggle_strips(self):
+            togglestrip = self.use_strips_var.get()
+            pass
+                
+    def start_simulation_normscale(self):
 
         #Simulation time in seconds.
         sim_time = self.sim_time_var.get()
@@ -882,18 +755,15 @@ class RPCSimulatorApp:
         #Now calculate the average rate of muon arrival (/sec) given the problem specifics.    
         rate = muons_flux*area_m2*(1e4)
 
+        detected_muons = []
         muons = []
-    
+
+        muon_index = 0
+
         #Start counting time
         running_time = 0
 
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
-
-        #Convert continuous probability distribution function into discrete distribution function for zenith angle
-        theta_val = np.linspace(0,np.pi/2,100)
-        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
-        Norm = np.sum(probs)
-        norm_probs = np.multiply(1/Norm,probs) 
 
         while running_time < sim_time:
 
@@ -916,31 +786,42 @@ class RPCSimulatorApp:
             if running_time >= sim_time:
                 break
 
-            #Generate initial position of muon above the RPC plate
+            muon_instance = self.generate_muon_at_time() 
 
-            x_pos = np.random.uniform(0, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.05)
-            y_pos = np.random.uniform(0, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.05)
-            z_pos = max(rpc.height for rpc in self.rpc_list)
+            if self.use_paths_var.get() == True:   
 
-            position = [x_pos,y_pos,z_pos]
+                muon_instance.simulate_path(self.rpc_list, initial_time=(running_time*1e9), time_step=traj_time_step) 
 
-            #####Generate velocity of muon, cos^2(theta) distribution for angle.
+            if self.use_strips_var.get() == True:
 
-            phi = np.random.uniform(0,2*np.pi)
-            theta = np.random.choice(theta_val,p=norm_probs)
+                muon_instance.stripped_check_hit(self.rpc_list)
+            else:
 
-            #Create velocity of muon, it is very important to put a - sign on the muon's velocity, or else 
+                muon_instance.check_hit(self.rpc_list)
 
-            velocity = np.multiply(0.98,[np.sin(theta)*np.cos(phi),np.sin(theta)*np.sin(phi),-np.cos(theta)])
-            
-            #Create object of class muon with these randomly generated velocities and positions.
-            generated_muon = muon(position=position, velocity= velocity)
+            for x in muon_instance.detected_5vector:
+                detected_muons.append({
+                "velocity": muon_instance.velocity,
+                "muon_index": muon_index,
+                "detected_x_position":x[0],
+                "detected_y_position":x[1],
+                "detected_z_position": x[2],
+                "detection_time": x[3],
+                "success":x[4]
 
-            generated_muon.simulate_path(self.rpc_list,initial_time=(running_time*1e9),time_step=traj_time_step)
+                    })
+            muon_index += 1
+            muons.append(muon_instance)
+    
+        df_detected_muons = pd.DataFrame(detected_muons)
+    
+        if self.use_darkcount_var.get() ==True:
+            df_dark = RPC.generate_dark(sim_time)
+            df_detected_muons = pd.concat([df_detected_muons, df_dark])
+    
+        self.simulation_finished_dialog(df_detected_muons,muons)
 
-            muons.append(generated_muon)
 
-        self.simulation_finished_dialog(muons)
 ###################################################################################################################
 ###################################################################################################################
 #Simulation result section
@@ -1045,32 +926,6 @@ class RPCSimulatorApp:
                 faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
                 poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
                 ax.add_collection3d(poly3d)
-            
-            # Calculate the time corresponding to the current frame, I have set it so that 1 frame is 1 nanosecond
-
-            """ #Only clear frames after every 5 frames, this increases the length of the streams behind the muons.
-            if frame % 5 ==0:
-                for line in ax.lines:
-                    if len(line.get_xdata()) > 5:  # Keep a maximum of 100 points per trajectory
-                        line.remove()
-
-                ####OLD SOLUTION ####
-
-                """ """ ax.cla()
-
-                for rpc in self.rpc_list:
-                    z = rpc.height
-                    width, length, _ = rpc.dimensions
-
-                    vertices = np.array([[0, 0, z],
-                                        [width, 0, z],
-                                        [width, length, z],
-                                        [0, length, z]])
-                    
-                    # Define the vertices of the rectangle
-                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                    poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-                    ax.add_collection3d(poly3d) """ """ """
 
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
@@ -1111,13 +966,13 @@ class RPCSimulatorApp:
                     continue
                 
 
-                  # Add text annotation for simulation time
-                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+                    # Add text annotation for simulation time
+            ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
             return ax
 
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=100)
 
         plt.show()
 
@@ -1169,13 +1024,13 @@ class RPCSimulatorApp:
                 faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
                 poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
                 ax.add_collection3d(poly3d)
-    
+
             #1 frame = 10 ms  of passage time in the simulation.
             #time in s
             time = (frame)*(0.01)
 
             time_scaled = time*(1e9)
-    
+
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.set_zlabel('Z')
