@@ -582,7 +582,7 @@ class RPCSimulatorApp:
         extension = h*np.tan(theta)
 
         position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
-        velocity = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
+        velocity = 0.98*[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
 
         return muon(position, velocity), theta, phi
     
