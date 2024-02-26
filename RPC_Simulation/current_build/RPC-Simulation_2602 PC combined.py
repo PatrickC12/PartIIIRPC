@@ -92,7 +92,7 @@ class muon:
 
         self.hits = []
 
-    def update_position(self,time_step, rpc_list, time, theta, phi):
+    def update_position(self,time_step, rpc_list, time):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
@@ -101,11 +101,11 @@ class muon:
 
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
-        self.check_hit(time, rpc_list, theta, phi)
+        self.check_hit(time, rpc_list)
         
-    def check_hit(self,time,rpc_list, theta, phi):
+    def check_hit(self,time,rpc_list):
         
-        efficiency = 1
+        efficiencies = [rpc.efficiency for rpc in rpc_list]
 
         max_x_dimension = max(rpc.dimensions[0] for rpc in rpc_list)
         max_y_dimension = max(rpc.dimensions[1] for rpc in rpc_list)
@@ -115,7 +115,7 @@ class muon:
         0< self.position[1] < max_y_dimension and
         min(rpc.height for rpc in rpc_list) < self.position[2] < max(rpc.height for rpc in rpc_list)):
             # Determine if hit is registered based on efficiency
-            hit_registered = "Y" if np.random.rand() < efficiency else "N"
+            hit_registered = if np.random.rand() < efficiency else 
             self.hits.append([*self.position, time, hit_registered])
     
     def simulate_path(self,rpc_list, initial_time,time_step, time, theta, phi):
@@ -568,6 +568,7 @@ class RPCSimulatorApp:
         max_z = max(rpc.height for rpc in self.rpc_list)
         min_z = min(rpc.height for rpc in self.rpc_list)
         h = max_z - min_z
+
         # Simplified for demonstration purposes
     
         #Convert continuous probability distribution function into discrete distribution function for zenith angle
@@ -584,7 +585,7 @@ class RPCSimulatorApp:
         position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
         velocity = 0.98*[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)]
 
-        return muon(position, velocity), theta, phi
+        return muon(position, velocity)
     
     def start_simulation_Peter(self):
         """Function to start the simulation using parameters from the GUI."""
@@ -601,8 +602,8 @@ class RPCSimulatorApp:
             if sim_time > total_sim_time:
                 break
         
-            muon_instance, theta, phi= self.generate_muon_at_time(sim_time)
-            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time, theta, phi) # Assume 0.1 ns as the time step for trajectory simulation
+            muon_instance = self.generate_muon_at_time()
+            muon_instance.simulate_path(self.rpc_list, sim_time, 0.1, sim_time) # Assume 0.1 ns as the time step for trajectory simulation
             
             x_detect = []
             y_detect = []
@@ -623,8 +624,6 @@ class RPCSimulatorApp:
                         "hit_z_position": hit[2],
                         "detection_time_ns": hit[3],
                         "velocity": muon_instance.velocity,
-                        "theta": theta,
-                        "phi": phi,
                         "muon_index": muon_index,
                         "detected_x_position":x_detect,
                         "detected_y_position":y_detect,
