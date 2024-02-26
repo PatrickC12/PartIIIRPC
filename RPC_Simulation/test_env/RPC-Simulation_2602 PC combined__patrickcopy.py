@@ -118,11 +118,13 @@ class muon:
         speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
 
-    def check_hit(self,rpc_list):
-        
-        init_time = self.times[0]
-        
-        
+    def check_hit(self,rpc_list,initial_time):
+
+        if len(self.times)==0:
+            init_time = initial_time
+        else:
+            init_time = self.times[0]
+    
         for rpc in rpc_list:
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
@@ -673,7 +675,7 @@ class RPCSimulatorApp:
             if self.use_strips_var.get() == True:
                 muon_instance.stripped_check_hit(self.rpc_list)
             else:
-                muon_instance.check_hit(self.rpc_list)
+                muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
                 
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -794,7 +796,7 @@ class RPCSimulatorApp:
 
             if self.use_strips_var.get() == True:
 
-                muon_instance.stripped_check_hit(self.rpc_list)
+                muon_instance.stripped_check_hit(self.rpc_list, initial_time=(running_time*1e9))
             else:
 
                 muon_instance.check_hit(self.rpc_list)
