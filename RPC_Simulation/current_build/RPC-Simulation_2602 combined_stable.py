@@ -834,10 +834,10 @@ class RPCSimulatorApp:
 
             if self.use_strips_var.get() == True:
 
-                muon_instance.stripped_check_hit(self.rpc_list, initial_time=(running_time*1e9))
+                muon_instance.stripped_check_hit(self.rpc_list)
             else:
 
-                muon_instance.check_hit(self.rpc_list)
+                muon_instance.check_hit(self.rpc_list, initial_time=(running_time*1e9))
 
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -861,7 +861,6 @@ class RPCSimulatorApp:
     
         self.simulation_finished_dialog(df_detected_muons,muons)
 
-
 ###################################################################################################################
 ###################################################################################################################
 #Simulation result section
@@ -884,8 +883,14 @@ class RPCSimulatorApp:
         # Button to save data into a CSV
         save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(muons))
         save_data_button.pack(pady=5)
+
+        if self.use_paths_var.get():
+            #Disable video output option if paths not simulated
+            s = "normal"
+        else:
+            s = "disabled"
         
-        play_video_button = ttk.Button(dialog_window, text="Play Video", command=lambda: self.play_video(muons))
+        play_video_button = ttk.Button(dialog_window, text="Play Video", state= s,command=lambda: self.play_video(muons))
         play_video_button.pack(pady=5)
         
     def play_video(self,muons):
