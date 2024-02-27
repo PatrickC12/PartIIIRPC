@@ -155,6 +155,8 @@ class muon:
         #PREVIOUSLY BOTTOM RPC APPEARED FIRST SO ANIMATION LOOKED WEIRD!!!!!!
         rpc_list.sort(key=sort_func,reverse=True)
 
+        speed_of_light = 0.299792458 # m/ns
+
         if len(self.times)==0:
             init_time = initial_time
         else:
@@ -162,9 +164,9 @@ class muon:
     
         for rpc in rpc_list:
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
-            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
-            if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:    
-                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc, self.position[1] + self.velocity[1] * time_to_rpc, rpc.height, init_time + time_to_rpc, success])
+            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
+            if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light< rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:    
+                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, success])
 
                 #CHANGED IT FROM - VELOCITY TO + VELOCITY!!!!!!!!!!!!!!!!!!!!
             else:
@@ -945,7 +947,6 @@ class RPCSimulatorApp:
         # Initialize empty arrays to store accumulated positions
         x_accumulated, y_accumulated, z_accumulated = [], [], []
         
-
         for rpc in self.rpc_list:
             z = rpc.height
             width, length, _ = rpc.dimensions
@@ -1019,7 +1020,6 @@ class RPCSimulatorApp:
                         continue
 
                 scat = ax.scatter([],[],[],alpha=1,c="red")
-                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
                 for rpc in self.rpc_list:
                     z = rpc.height
@@ -1054,13 +1054,6 @@ class RPCSimulatorApp:
                 
                 # Update scatter plot data
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
-
-                ax.set_xlabel('X')
-                ax.set_ylabel('Y')
-                ax.set_zlabel('Z')
-                ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
-                ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
-                ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
 
                 # Add text annotation for simulation time
                 ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
@@ -1132,7 +1125,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=1000)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=5000)
 
         plt.show()
 
