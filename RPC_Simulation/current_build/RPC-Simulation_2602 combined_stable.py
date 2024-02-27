@@ -196,7 +196,7 @@ class muon:
         #Simulate path of muon, given time_step and initial_time in nanoseconds
 
         #Append initial position
-        self.trajectory.append(self.position.copy())
+        self.trajectory.append(self.position)
 
         #Running time counter, nanoseconds
         T = initial_time
@@ -219,7 +219,9 @@ class muon:
             T+=dT
             self.update_position(time_step)
             self.times.append(T)
-            self.trajectory.append(self.position)
+            self.trajectory.append(self.position.copy())
+            # print(self.trajectory)
+
 
 class RPCSimulatorApp:
 
@@ -677,9 +679,9 @@ class RPCSimulatorApp:
 
         position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
         velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
-
-        return muon(position, velocity)
-      
+        
+        return muon(position= position, velocity= velocity)
+    
     def start_simulation_combinednano(self):
 
         """Function to start the simulation using parameters from the GUI."""
@@ -709,13 +711,13 @@ class RPCSimulatorApp:
             muon_instance = self.generate_muon_at_time()
             
             if self.use_paths_var.get() == True:        
-                muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step) 
+                muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
             
             if self.use_strips_var.get() == True:
                 muon_instance.stripped_check_hit(self.rpc_list)
             else:
                 muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
-                
+                    
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
                     "velocity": muon_instance.velocity,
@@ -727,6 +729,8 @@ class RPCSimulatorApp:
                     "success":x[4]
 
                         })
+            
+                
             muon_index += 1
             muons.append(muon_instance)
         
@@ -1043,9 +1047,7 @@ class RPCSimulatorApp:
                 y_current = current_data['detected_y_position'].values
                 z_current = current_data['detected_z_position'].values
 
-                #SOMETHING IS WRONG WITH z_current???? eg gives wrong value, plot it and see.
-
-                print([x_current,y_current,z_current,frame])
+                #SOMETHING IS WRONG WITH z_current???? eg gives wrong value, plot it and see
 
                 # Accumulate the positions
                 x_accumulated.extend(x_current)
@@ -1125,7 +1127,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=5000)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
 
         plt.show()
 
