@@ -133,6 +133,7 @@ class muon:
             self.update_position(time_step)
             self.times.append(T)
             self.trajectory.append(self.position.copy())
+            print(self.trajectory)
 
 class RPCSimulatorApp:
 
