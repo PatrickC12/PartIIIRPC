@@ -148,6 +148,13 @@ class muon:
 
     def check_hit(self,rpc_list,initial_time):
 
+        def sort_func(x):
+            return x.height
+        
+        #SORT LIST SO THAT TOP RPC APPEARS FIRST IN THE HIT REGISTER!!!!!!!!!
+        #PREVIOUSLY BOTTOM RPC APPEARED FIRST SO ANIMATION LOOKED WEIRD!!!!!!
+        rpc_list.sort(key=sort_func,reverse=True)
+
         if len(self.times)==0:
             init_time = initial_time
         else:
@@ -157,9 +164,11 @@ class muon:
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
             if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:    
-                self.detected_5vector.append([self.position[0] - self.velocity[0] * time_to_rpc, self.position[1] - self.velocity[1] * time_to_rpc, rpc.height, init_time + time_to_rpc, success])
+                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc, self.position[1] + self.velocity[1] * time_to_rpc, rpc.height, init_time + time_to_rpc, success])
+
+                #CHANGED IT FROM - VELOCITY TO + VELOCITY!!!!!!!!!!!!!!!!!!!!
             else:
-                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
+                continue
                 
     def stripped_check_hit(self, rpc_list):
         
@@ -870,36 +879,39 @@ class RPCSimulatorApp:
         dialog_window = tk.Toplevel(self.master)
         dialog_window.title(f"Simulation Finished")
 
-        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_selected_muons))
-        view_data_button.pack(pady=5)
-
         dialog_window_desc = tk.Label(dialog_window, text=f'{len(muons)} muons generated')
         dialog_window_desc.pack(padx=30, pady=30)
+
+        view_data_button = ttk.Button(dialog_window, text="View Data", command=lambda: self.view_data(df_selected_muons))
+        view_data_button.pack(pady=5)
 
         # Button to plot data on 3D plot
         plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(muons))
         plot_data_button.pack(pady=5)
 
         # Button to save data into a CSV
-        save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(muons))
+        save_data_button = ttk.Button(dialog_window, text="Save Data Again", command=lambda: self.save_data_again(df_selected_muons))
         save_data_button.pack(pady=5)
+        
+        play_video_button = ttk.Button(dialog_window, text="Play Video",command=lambda: self.play_video(muons,df_selected_muons))
+        play_video_button.pack(pady=5)
 
         if self.use_paths_var.get():
-            #Disable video output option if paths not simulated
-            s = "normal"
+            s='normal'
         else:
-            s = "disabled"
+            s='disabled'
+
+        self.video_plot_paths_var = tk.BooleanVar(value=False)
+        self.video_plot_paths_var_checkbox = ttk.Checkbutton(dialog_window, text='Plot the trajectories in the plot?', state=s,variable = self.video_plot_paths_var)
+        self.video_plot_paths_var_checkbox.pack(anchor='center')
         
-        play_video_button = ttk.Button(dialog_window, text="Play Video", state= s,command=lambda: self.play_video(muons))
-        play_video_button.pack(pady=5)
-        
-    def play_video(self,muons):
+    def play_video(self,muons,df_selected_muons):
 
         #Select video player format if nanoscale or norm scale simulation.
         if self.simulation_var.get():
-            self.play_video_nano(muons)
+            self.play_video_nano(muons,df_selected_muons)
         else:
-            self.play_video_norm(muons)
+            self.play_video_norm(muons,df_selected_muons)
 
     def view_data(self, df):
         if df.empty:
@@ -924,11 +936,15 @@ class RPCSimulatorApp:
             muons.to_csv(filepath, index=False)
             messagebox.showinfo("Data Saved", "The muons data has been saved to " + filepath)
             
-    def play_video_nano(self,muons):
+    def play_video_nano(self,muons,df):
 
         # Create a figure and a 3D axis
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
+
+        # Initialize empty arrays to store accumulated positions
+        x_accumulated, y_accumulated, z_accumulated = [], [], []
+        
 
         for rpc in self.rpc_list:
             z = rpc.height
@@ -941,7 +957,7 @@ class RPCSimulatorApp:
             
             # Define the vertices of the rectangle
             faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1)
             ax.add_collection3d(poly3d)
 
         #Simulation time in nanoseconds
@@ -949,13 +965,15 @@ class RPCSimulatorApp:
         
         #desired number of frames, I would like 1 frame for every 1ns of the animation.
 
-        number_of_frames = int(sim_time)
+        number_of_frames = int(sim_time)+1
+
+        #Increase by one !
 
         # Function to update the plot for each frame of the animation
-        def update(frame):
 
-            #If you would like to plot the entire trajectory (eg if you have a low flux and only a small # events) then just remove this ax.cla()
-            
+        def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated ):
+                
+            #If you would like to keep the trajectory plotted, then just remove ax.cla().
             ax.cla()
 
             for rpc in self.rpc_list:
@@ -969,59 +987,156 @@ class RPCSimulatorApp:
                 
                 # Define the vertices of the rectangle
                 faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                poly3d = Poly3DCollection(faces, alpha=0.2, edgecolors='r', linewidths=1, facecolors='cyan')
                 ax.add_collection3d(poly3d)
 
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.set_zlabel('Z')
-            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
-            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
-            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+            if self.video_plot_paths_var.get():
 
-            for muon in muons:
+                ax.set_xlabel('X')
+                ax.set_ylabel('Y')
+                ax.set_zlabel('Z')
+                ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+                ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+                ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
 
-                if muon.times[0] <= frame <= muon.times[-1]:
+                for muon in muons:
 
-                    comb =np.hstack((muon.trajectory, np.array(muon.times)[:, np.newaxis]))
-                    
-                    filtered_trajectory = [x for x in comb if frame-1<x[3]<=frame]
+                    if muon.times[0] <= frame <= muon.times[-1]:
 
-                    if len(filtered_trajectory)==0:
-                        print(f"EMPTY FILTER!!, Frame is {frame}")
-                        pass
+                        comb =np.hstack((muon.trajectory, np.array(muon.times)[:, np.newaxis]))
+                        
+                        filtered_trajectory = [x for x in comb if frame-1<x[3]<=frame]
+
+                        if len(filtered_trajectory)==0:
+                            print(f"EMPTY FILTER!!, Frame is {frame}")
+                            pass
+                        else:
+                            # Extract positions from the trajectory
+                            position = np.array(filtered_trajectory)[:, :3]
+                            x, y, z = position[:, 0], position[:, 1], position[:, 2]
+                            ax.plot(x, y, z, color='red')  # Plot the trajectory       
                     else:
-                        # Extract positions from the trajectory
-                        position = np.array(filtered_trajectory)[:, :3]
-                        x, y, z = position[:, 0], position[:, 1], position[:, 2]
-                        ax.plot(x, y, z, color='red')  # Plot the trajectory
+                        continue
 
-                        #Uncomment to add tail if you would like.
+                scat = ax.scatter([],[],[],alpha=1,c="red")
+                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
-                        """ # Plot past trajectory points tails.
-                        if frame > 1:
-                            past_frame = frame - 1
-                            past_filtered_trajectory = [x for x in comb if past_frame - 1 < x[3] <= past_frame]
-                            if len(past_filtered_trajectory) != 0:
-                                past_position = np.array(past_filtered_trajectory)[:, :3]
-                                x_past, y_past, z_past = past_position[:, 0], past_position[:, 1], past_position[:, 2]
-                                ax.plot(x_past, y_past, z_past, color='darkred') """
-                            
-                else:
-                    continue
+                for rpc in self.rpc_list:
+                    z = rpc.height
+                    width, length, _ = rpc.dimensions
+
+                    vertices = np.array([[0, 0, z],
+                                        [width, 0, z],
+                                        [width, length, z],
+                                        [0, length, z]])
+                    
+                    # Define the vertices of the rectangle
+                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                    poly3d = Poly3DCollection(faces, alpha=0.2, edgecolors='r', linewidths=1)
+                    ax.add_collection3d(poly3d)
+
+                # Filter data for the cumulative frame.
+                # 1 frame = 1 ns
+
+                current_data = df[(frame-1 <= df['detection_time']) & (df['detection_time'] <= frame)]
+                x_current = current_data['detected_x_position'].values
+                y_current = current_data['detected_y_position'].values
+                z_current = current_data['detected_z_position'].values
+
+                #SOMETHING IS WRONG WITH z_current???? eg gives wrong value, plot it and see.
+
+                print([x_current,y_current,z_current,frame])
+
+                # Accumulate the positions
+                x_accumulated.extend(x_current)
+                y_accumulated.extend(y_current)
+                z_accumulated.extend(z_current)
                 
+                # Update scatter plot data
+                scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
 
-                    # Add text annotation for simulation time
-            ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+                ax.set_xlabel('X')
+                ax.set_ylabel('Y')
+                ax.set_zlabel('Z')
+                ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+                ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+                ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
 
-            return ax
+                # Add text annotation for simulation time
+                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
+                if  frame == number_of_frames-1:
+                    x_accumulated.clear()
+                    y_accumulated.clear()
+                    z_accumulated.clear()
+                        # Also clear the scatter plot
+                    scat.remove()
+                    # Recreate the scatter plot
+                    scat = ax.scatter([], [], [])
+                    return scat, ax
+                else:
+                    return scat, ax
+            
+            else:
+
+                scat = ax.scatter([],[],[])
+                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+
+                for rpc in self.rpc_list:
+                    z = rpc.height
+                    width, length, _ = rpc.dimensions
+
+                    vertices = np.array([[0, 0, z],
+                                        [width, 0, z],
+                                        [width, length, z],
+                                        [0, length, z]])
+                    
+                    # Define the vertices of the rectangle
+                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                    poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
+                    ax.add_collection3d(poly3d)
+
+                # Filter data for the cumulative frame.
+                # 1 frame = 1 ns
+
+                current_data = df[(frame-1 <= df['detection_time']) & (df['detection_time'] <= frame)]
+                x_current = current_data['detected_x_position'].values
+                y_current = current_data['detected_y_position'].values
+                z_current = current_data['detected_z_position'].values
+
+                # Accumulate the positions
+                x_accumulated.extend(x_current)
+                y_accumulated.extend(y_current)
+                z_accumulated.extend(z_current)
+                
+                # Update scatter plot data
+                scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
+
+                ax.set_xlabel('X')
+                ax.set_ylabel('Y')
+                ax.set_zlabel('Z')
+                ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+                ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+                ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+
+            if  frame == number_of_frames-1:
+                x_accumulated.clear()
+                y_accumulated.clear()
+                z_accumulated.clear()
+                    # Also clear the scatter plot
+                scat.remove()
+                # Recreate the scatter plot
+                scat = ax.scatter([], [], [])
+                return scat,
+            else:
+                return scat,
+    
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=100)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=1000)
 
         plt.show()
 
-    def play_video_norm(self,muons):
+    def play_video_norm(self,muons,df_selected_muons):
 
         #Making a copy of muons so that the original data is not deleted...
         muons_c = muons.copy()
@@ -1135,6 +1250,9 @@ if __name__ == "__main__":
         # plot_detected_muons function should plot muon trajectories of tagged muons.
         # Improve RPC updating widget and RPC text files. Make this more user friendly.
         # Gaussian voltage distribution, overlap with detector strips. Threshold
+        # Still alot of wasted muons, make sure muons produced go to bottom plate.
+        # Add error if no detected muons produced...
+        #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
 
 
 

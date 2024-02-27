@@ -8,6 +8,7 @@ Number of Strips in x direction = 32,
 Number of strips in y direction = 32,
 RPC Efficiency = 1.0,
 RPC Gas mixture = {'Isobutane': 100.0},
+Darkcount Rate = 0.02,
 
 RPC 2,
 Height(m) = 6.0,
@@ -19,4 +20,4 @@ Number of Strips in x direction = 32,
 Number of strips in y direction = 32,
 RPC Efficiency = 1.0,
 RPC Gas mixture = {'Isobutane': 100.0},
-
+Darkcount Rate = 0.02,
