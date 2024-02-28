@@ -171,7 +171,7 @@ class muon:
 
                 #CHANGED IT FROM - VELOCITY TO + VELOCITY!!!!!!!!!!!!!!!!!!!!
             else:
-                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
+                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
                 
     def stripped_check_hit(self, rpc_list, initial_time):
         
@@ -194,7 +194,7 @@ class muon:
                 y_strip = round(y_pos / self.y_spacing) * self.y_spacing
                 self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
             else:
-                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
+                self.detected_5vector.append([np.nan, np.nan, np.nan, np.nan, np.nan])
                     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
@@ -748,8 +748,8 @@ class RPCSimulatorApp:
 
                         })
                 
-                muon_index += 1
-                muons.append(muon_instance)
+            muon_index += 1
+            muons.append(muon_instance)
                 
                 
         if self.use_darkcount_var.get() == True:
@@ -985,14 +985,9 @@ class RPCSimulatorApp:
 
         #Simulation time in nanoseconds
         sim_time = self.sim_time_var.get()
-        
-        #desired number of frames, I would like 1 frame for every 1ns of the animation.
+
 
         number_of_frames = int(sim_time)+1
-
-        #Increase by one !
-
-        # Function to update the plot for each frame of the animation
 
         def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated ):
                 
@@ -1094,6 +1089,8 @@ class RPCSimulatorApp:
 
                 scat = ax.scatter([],[],[])
                 ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+                
+                
 
                 for rpc in self.rpc_list:
                     z = rpc.height
@@ -1116,6 +1113,9 @@ class RPCSimulatorApp:
                 x_current = current_data['detected_x_position'].values
                 y_current = current_data['detected_y_position'].values
                 z_current = current_data['detected_z_position'].values
+                
+               
+
 
                 # Accumulate the positions
                 x_accumulated.extend(x_current)
@@ -1124,13 +1124,32 @@ class RPCSimulatorApp:
                 
                 # Update scatter plot data
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
-
+                
                 ax.set_xlabel('X')
                 ax.set_ylabel('Y')
                 ax.set_zlabel('Z')
                 ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
                 ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
                 ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+                
+                
+                muon_detection_times = df.groupby('muon_index')['detection_time'].agg(['min', 'max']).to_dict('index')
+                relevant_muons = [index for index, times in muon_detection_times.items() if times['min'] <= frame <= times['max']]
+                if relevant_muons:
+                    # Filter dataframe for relevant muons.
+                    current_data_line = df[df['muon_index'].isin(relevant_muons) & (df['success'] != 'out')]
+                    current_data_line = current_data_line.dropna(subset=['detected_x_position', 'detected_y_position', 'detected_z_position'])
+                    
+                    # Group by muon_index and draw lines for each group.
+                    grouped = current_data_line.groupby('muon_index')
+                    for name, group in grouped:
+                        # Only plot lines for muons that are relevant for the current frame.
+                        if name in relevant_muons:
+                            group = group.sort_values(by='detection_time')
+                            x = group['detected_x_position'].values
+                            y = group['detected_y_position'].values
+                            z = group['detected_z_position'].values
+                            ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = 'red')
 
             if  frame == number_of_frames-1:
                 x_accumulated.clear()
@@ -1145,7 +1164,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=100)
 
         plt.show()
 
