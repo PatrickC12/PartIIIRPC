@@ -1286,6 +1286,14 @@ if __name__ == "__main__":
         # Add error if no detected muons produced...
         #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
 
+#Important:
+#add reconstructino algorithms to measure reconstruction efficiency
+#API for external use outside of GUI (Start making measurements)
+#Connect with Garfield++ in the linux system (Simulation within gas gaps)
+#Add energy distributions for different velocity of muons
+#Make presets for quality of life changes
+
+
 
 
 
