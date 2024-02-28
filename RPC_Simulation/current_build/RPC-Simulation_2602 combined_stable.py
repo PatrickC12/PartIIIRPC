@@ -170,11 +170,14 @@ class muon:
 
                 #CHANGED IT FROM - VELOCITY TO + VELOCITY!!!!!!!!!!!!!!!!!!!!
             else:
-                continue
+                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
                 
-    def stripped_check_hit(self, rpc_list):
+    def stripped_check_hit(self, rpc_list, initial_time):
         
-        init_time = self.times[0]
+        if len(self.times)==0:
+            init_time = initial_time
+        else:
+            init_time = self.times[0]
 
         for rpc in rpc_list:
             self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
@@ -679,9 +682,9 @@ class RPCSimulatorApp:
         
         time_of_travel = np.abs(h / velocity[2])
         
-        extension = abs(np.multiply(velocity, time_of_travel))
+        extension = np.multiply(velocity, time_of_travel)
         
-        position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)+extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)+extension[1]) , max(rpc.height for rpc in self.rpc_list)]
+        position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity)
     
@@ -717,9 +720,23 @@ class RPCSimulatorApp:
                 muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
             
             if self.use_strips_var.get() == True:
-                muon_instance.stripped_check_hit(self.rpc_list)
+                muon_instance.stripped_check_hit(self.rpc_list, initial_time = sim_time)
             else:
                 muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
+                
+            if self.use_darkcount_var.get() == True:
+                if self.use_strips_var.get() == False:
+                    df_detected_dark_muons = pd.DataFrame([])
+                    for rpc in self.rpc_list:  
+                        df_dark = RPC.generate_dark(rpc, total_sim_time)
+                        df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
+                else:
+                    df_detected_dark_muons = pd.DataFrame([])
+                    for rpc in self.rpc_list:  
+                        df_dark = RPC.generate_dark_stripped(rpc, total_sim_time)
+                        df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
+                    df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
+                
                     
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -738,21 +755,11 @@ class RPCSimulatorApp:
             muons.append(muon_instance)
         
         df_detected_muons = pd.DataFrame(detected_muons)
-        
-        if self.use_darkcount_var.get() == True:
-            if self.use_strips_var.get() == False:
-                df_detected_dark_muons = pd.DataFrame([])
-                for rpc in self.rpc_list:  
-                    df_dark = RPC.generate_dark(rpc, total_sim_time)
-                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
-                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
-            else:
-                df_detected_dark_muons = pd.DataFrame([])
-                for rpc in self.rpc_list:  
-                    df_dark = RPC.generate_dark_stripped(rpc, total_sim_time)
-                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
-                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
-                
+        try:
+            pd.concat([df_detected_dark_muons, df_detected_muons])
+        except:
+            pass
+
         self.simulation_finished_dialog(df_detected_muons,muons)
 
 ###################################################################################################################
