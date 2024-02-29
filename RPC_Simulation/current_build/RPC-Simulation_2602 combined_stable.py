@@ -194,7 +194,7 @@ class muon:
                 y_strip = round(y_pos / self.y_spacing) * self.y_spacing
                 self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
             else:
-                self.detected_5vector.append([np.nan, np.nan, np.nan, np.nan, np.nan])
+                self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, 'out'])
                     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
@@ -1005,7 +1005,7 @@ class RPCSimulatorApp:
                 
                 # Define the vertices of the rectangle
                 faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                poly3d = Poly3DCollection(faces, alpha=0.2, edgecolors='r', linewidths=1, facecolors='cyan')
+                poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1, facecolors='cyan')
                 ax.add_collection3d(poly3d)
 
             if self.video_plot_paths_var.get():
@@ -1089,22 +1089,6 @@ class RPCSimulatorApp:
 
                 scat = ax.scatter([],[],[])
                 ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
-                
-                
-
-                for rpc in self.rpc_list:
-                    z = rpc.height
-                    width, length, _ = rpc.dimensions
-
-                    vertices = np.array([[0, 0, z],
-                                        [width, 0, z],
-                                        [width, length, z],
-                                        [0, length, z]])
-                    
-                    # Define the vertices of the rectangle
-                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                    poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-                    ax.add_collection3d(poly3d)
 
                 # Filter data for the cumulative frame.
                 # 1 frame = 1 ns
@@ -1113,16 +1097,24 @@ class RPCSimulatorApp:
                 x_current = current_data['detected_x_position'].values
                 y_current = current_data['detected_y_position'].values
                 z_current = current_data['detected_z_position'].values
-                
-               
+                # Assuming 'width' and 'length' are defined elsewhere in your code
+                conditionx = x_current <= width
+                conditiony = y_current <= length
+                conditionx1 = x_current >= 0
+                conditionx2 = y_current >= 0
 
+                # Combine the conditions using logical AND to ensure we only keep entries that satisfy both
+                combined_condition = conditionx & conditiony & conditionx1 & conditionx2
 
-                # Accumulate the positions
-                x_accumulated.extend(x_current)
-                y_accumulated.extend(y_current)
-                z_accumulated.extend(z_current)
-                
-                # Update scatter plot data
+                # Apply the combined condition to all arrays
+                x_filtered = x_current[combined_condition]
+                y_filtered = y_current[combined_condition]
+                z_filtered = z_current[combined_condition] # Now applying filtering to z_current as well
+
+                # Now, all filtered arrays will have the same dimension
+                x_accumulated.extend(x_filtered)
+                y_accumulated.extend(y_filtered)
+                z_accumulated.extend(z_filtered)
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
                 
                 ax.set_xlabel('X')
