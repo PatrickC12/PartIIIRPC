@@ -677,6 +677,8 @@ class RPCSimulatorApp:
 
         extension = h*np.tan(theta)
 
+        #ADD CHECK FOR VELOCITY, ENSURE EACH MUON PASSES THROUGH ATLEAST ONE RPC!!!!!!!!!!!
+
         position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
         velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
         
