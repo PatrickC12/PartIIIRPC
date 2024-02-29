@@ -980,7 +980,7 @@ class RPCSimulatorApp:
             
             # Define the vertices of the rectangle
             faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1)
+            poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1)
             ax.add_collection3d(poly3d)
 
         #Simulation time in nanoseconds
