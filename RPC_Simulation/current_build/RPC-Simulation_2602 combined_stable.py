@@ -77,7 +77,8 @@ class RPC:
                 "detection_time": detection_time,
                 "success": 'dark'
             })
-        return pd.DataFrame(darkcountdata)
+            
+        return darkcountdata
     
     def generate_dark_stripped(self, runtime):
         darkcountdatastripped = []
@@ -104,7 +105,7 @@ class RPC:
                 "detection_time": detection_time,
                 "success": 'dark'
             })
-        return pd.DataFrame(darkcountdatastripped)
+        return darkcountdatastripped
     
     #Use GUI interface, generate stack of RPCs, choose gas mixtures and voltages for each. Run simulation of muon count.
         
@@ -170,11 +171,14 @@ class muon:
 
                 #CHANGED IT FROM - VELOCITY TO + VELOCITY!!!!!!!!!!!!!!!!!!!!
             else:
-                continue
+                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
                 
-    def stripped_check_hit(self, rpc_list):
+    def stripped_check_hit(self, rpc_list, initial_time):
         
-        init_time = self.times[0]
+        if len(self.times)==0:
+            init_time = initial_time
+        else:
+            init_time = self.times[0]
 
         for rpc in rpc_list:
             self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
@@ -190,7 +194,7 @@ class muon:
                 y_strip = round(y_pos / self.y_spacing) * self.y_spacing
                 self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
             else:
-                self.detected_5vector.append(['NaN', 'NaN', 'NaN', 'NaN', 'NaN'])
+                self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, 'out'])
                     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
@@ -674,13 +678,14 @@ class RPCSimulatorApp:
 
         theta = np.random.choice(theta_val, p=norm_probs)
         phi = np.random.uniform(0, 2 * np.pi)
-
-        extension = h*np.tan(theta)
-
-        #ADD CHECK FOR VELOCITY, ENSURE EACH MUON PASSES THROUGH ATLEAST ONE RPC!!!!!!!!!!!
-
-        position = [np.random.uniform(-extension,max(rpc.dimensions[0] for rpc in self.rpc_list)+extension),np.random.uniform(-extension,max(rpc.dimensions[1] for rpc in self.rpc_list)+extension) , max(rpc.height for rpc in self.rpc_list)]
+        
         velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
+        
+        time_of_travel = np.abs(h / velocity[2])
+        
+        extension = np.multiply(velocity, time_of_travel)
+        
+        position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity)
     
@@ -690,6 +695,15 @@ class RPCSimulatorApp:
 
         total_sim_time = self.sim_time_var.get()
         detected_muons = []
+        detected_dark_muons = pd.DataFrame({            
+            "velocity": [np.nan],
+            "muon_index": [np.nan],
+            "detected_x_position": [np.nan],
+            "detected_y_position": [np.nan],
+            "detected_z_position": [np.nan],
+            "detection_time": [np.nan],
+            "success": [np.nan]
+})
         muons = []
         sim_time = 0
         muon_index = 0
@@ -716,10 +730,12 @@ class RPCSimulatorApp:
                 muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
             
             if self.use_strips_var.get() == True:
-                muon_instance.stripped_check_hit(self.rpc_list)
+                muon_instance.stripped_check_hit(self.rpc_list, initial_time = sim_time)
             else:
                 muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
-                    
+                
+
+                       
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
                     "velocity": muon_instance.velocity,
@@ -731,27 +747,27 @@ class RPCSimulatorApp:
                     "success":x[4]
 
                         })
-            
                 
             muon_index += 1
             muons.append(muon_instance)
-        
-        df_detected_muons = pd.DataFrame(detected_muons)
-        
+                
+                
         if self.use_darkcount_var.get() == True:
             if self.use_strips_var.get() == False:
-                df_detected_dark_muons = pd.DataFrame([])
                 for rpc in self.rpc_list:  
-                    df_dark = RPC.generate_dark(rpc, total_sim_time)
-                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
-                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
+                    dark = pd.DataFrame(RPC.generate_dark(rpc, total_sim_time))
+                    print(f"Dark counts generated: {len(dark)}")
+                    detected_dark_muons  = pd.concat([dark, detected_dark_muons], ignore_index=True)
             else:
-                df_detected_dark_muons = pd.DataFrame([])
                 for rpc in self.rpc_list:  
-                    df_dark = RPC.generate_dark_stripped(rpc, total_sim_time)
-                    df_detected_dark_muons = pd.concat([df_detected_dark_muons, df_dark])
-                df_detected_muons = pd.concat([df_detected_dark_muons, df_detected_muons])
+                    dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, total_sim_time))
+                    detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
                 
+        
+        df_detected_muons = pd.DataFrame(detected_muons)
+        if self.use_darkcount_var.get() == True:
+            df_detected_muons = pd.concat([detected_dark_muons, df_detected_muons], ignore_index=True)
+            
         self.simulation_finished_dialog(df_detected_muons,muons)
 
 ###################################################################################################################
@@ -964,19 +980,14 @@ class RPCSimulatorApp:
             
             # Define the vertices of the rectangle
             faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-            poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1)
+            poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1)
             ax.add_collection3d(poly3d)
 
         #Simulation time in nanoseconds
         sim_time = self.sim_time_var.get()
-        
-        #desired number of frames, I would like 1 frame for every 1ns of the animation.
+
 
         number_of_frames = int(sim_time)+1
-
-        #Increase by one !
-
-        # Function to update the plot for each frame of the animation
 
         def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated ):
                 
@@ -994,7 +1005,7 @@ class RPCSimulatorApp:
                 
                 # Define the vertices of the rectangle
                 faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                poly3d = Poly3DCollection(faces, alpha=0.2, edgecolors='r', linewidths=1, facecolors='cyan')
+                poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1, facecolors='cyan')
                 ax.add_collection3d(poly3d)
 
             if self.video_plot_paths_var.get():
@@ -1079,20 +1090,6 @@ class RPCSimulatorApp:
                 scat = ax.scatter([],[],[])
                 ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
-                for rpc in self.rpc_list:
-                    z = rpc.height
-                    width, length, _ = rpc.dimensions
-
-                    vertices = np.array([[0, 0, z],
-                                        [width, 0, z],
-                                        [width, length, z],
-                                        [0, length, z]])
-                    
-                    # Define the vertices of the rectangle
-                    faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
-                    poly3d = Poly3DCollection(faces, alpha=0.5, edgecolors='r', linewidths=1, facecolors='cyan')
-                    ax.add_collection3d(poly3d)
-
                 # Filter data for the cumulative frame.
                 # 1 frame = 1 ns
 
@@ -1100,21 +1097,51 @@ class RPCSimulatorApp:
                 x_current = current_data['detected_x_position'].values
                 y_current = current_data['detected_y_position'].values
                 z_current = current_data['detected_z_position'].values
+                # Assuming 'width' and 'length' are defined elsewhere in your code
+                conditionx = x_current <= width
+                conditiony = y_current <= length
+                conditionx1 = x_current >= 0
+                conditionx2 = y_current >= 0
 
-                # Accumulate the positions
-                x_accumulated.extend(x_current)
-                y_accumulated.extend(y_current)
-                z_accumulated.extend(z_current)
-                
-                # Update scatter plot data
+                # Combine the conditions using logical AND to ensure we only keep entries that satisfy both
+                combined_condition = conditionx & conditiony & conditionx1 & conditionx2
+
+                # Apply the combined condition to all arrays
+                x_filtered = x_current[combined_condition]
+                y_filtered = y_current[combined_condition]
+                z_filtered = z_current[combined_condition] # Now applying filtering to z_current as well
+
+                # Now, all filtered arrays will have the same dimension
+                x_accumulated.extend(x_filtered)
+                y_accumulated.extend(y_filtered)
+                z_accumulated.extend(z_filtered)
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
-
+                
                 ax.set_xlabel('X')
                 ax.set_ylabel('Y')
                 ax.set_zlabel('Z')
                 ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
                 ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
                 ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+                
+                
+                muon_detection_times = df.groupby('muon_index')['detection_time'].agg(['min', 'max']).to_dict('index')
+                relevant_muons = [index for index, times in muon_detection_times.items() if times['min'] <= frame <= times['max']]
+                if relevant_muons:
+                    # Filter dataframe for relevant muons.
+                    current_data_line = df[df['muon_index'].isin(relevant_muons) & (df['success'] != 'out')]
+                    current_data_line = current_data_line.dropna(subset=['detected_x_position', 'detected_y_position', 'detected_z_position'])
+                    
+                    # Group by muon_index and draw lines for each group.
+                    grouped = current_data_line.groupby('muon_index')
+                    for name, group in grouped:
+                        # Only plot lines for muons that are relevant for the current frame.
+                        if name in relevant_muons:
+                            group = group.sort_values(by='detection_time')
+                            x = group['detected_x_position'].values
+                            y = group['detected_y_position'].values
+                            z = group['detected_z_position'].values
+                            ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = 'red')
 
             if  frame == number_of_frames-1:
                 x_accumulated.clear()
@@ -1129,7 +1156,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=50)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=100)
 
         plt.show()
 
@@ -1250,6 +1277,14 @@ if __name__ == "__main__":
         # Still alot of wasted muons, make sure muons produced go to bottom plate.
         # Add error if no detected muons produced...
         #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
+
+#Important:
+#add reconstructino algorithms to measure reconstruction efficiency
+#API for external use outside of GUI (Start making measurements)
+#Connect with Garfield++ in the linux system (Simulation within gas gaps)
+#Add energy distributions for different velocity of muons
+#Make presets for quality of life changes
+
 
 
 
