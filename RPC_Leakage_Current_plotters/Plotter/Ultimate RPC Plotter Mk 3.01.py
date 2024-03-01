@@ -6,6 +6,7 @@ import seaborn as sns
 import numpy as np
 from scipy.optimize import curve_fit
 import os
+from matplotlib.pyplot import cm
 
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
@@ -116,6 +117,7 @@ class CSVPlotterApp:
         if not selected_files:
             messagebox.showwarning("No Selection", "No files selected for plotting.")
             return
+        color = iter(cm.rainbow(np.linspace(0, 1, 15)))
 
         plt.figure(figsize=(10, 8))
         manual_threshold = self.manual_threshold_var.get()
@@ -125,8 +127,11 @@ class CSVPlotterApp:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
             data = data[data['Current/uA'] > 0]
+                        
+            c = next(color)
 
-            sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file)
+            sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file, c = c)
+            
 
             if self.fit_lines_var.get():
                 if manual_threshold > 0:  # Use manual threshold if specified
