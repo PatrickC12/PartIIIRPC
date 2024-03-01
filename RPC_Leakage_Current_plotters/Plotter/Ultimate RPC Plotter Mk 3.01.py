@@ -117,9 +117,9 @@ class CSVPlotterApp:
         if not selected_files:
             messagebox.showwarning("No Selection", "No files selected for plotting.")
             return
-        color = iter(cm.rainbow(np.linspace(0, 1, 15)))
+        color = iter(cm.rainbow(np.linspace(0, 1, 16)))
 
-        plt.figure(figsize=(10, 8))
+        plt.figure(figsize=(20, 16))
         manual_threshold = self.manual_threshold_var.get()
         initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.initial_guess_c_var.get()]  # Corrected to use the proper variable for 'c'
 
