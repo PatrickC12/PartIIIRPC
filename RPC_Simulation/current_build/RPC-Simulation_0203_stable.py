@@ -176,8 +176,8 @@ class muon:
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
             if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:
                 # Calculate position at the time of potential detection
-                x_pos = self.position[0] + self.velocity[0] * time_to_rpc
-                y_pos = self.position[1] + self.velocity[1] * time_to_rpc
+                x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
+                y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
                 # Adjust position to nearest strip point
                 x_strip = round(x_pos / self.x_spacing) * self.x_spacing
                 y_strip = round(y_pos / self.y_spacing) * self.y_spacing
