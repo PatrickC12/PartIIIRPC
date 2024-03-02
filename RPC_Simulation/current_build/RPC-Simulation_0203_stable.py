@@ -288,7 +288,6 @@ class RPCSimulatorApp:
    
 ###################################################################################################################
 #RPC Management Section
-###Mange_RPC panel is quite shite... could do with an upgrade todo ######
 ################################################################################################################### 
     def manage_rpc_window(self):
         manage_window = tk.Toplevel(self.master)
@@ -814,21 +813,8 @@ class RPCSimulatorApp:
         self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_combinednano)
         self.start_sim_button.pack(pady=5)
     
-    def generate_muon_at_time(self):
+    def generate_muon_at_time(self,theta,h):
 
-        max_z = max(rpc.height for rpc in self.rpc_list)
-        min_z = min(rpc.height for rpc in self.rpc_list)
-        h = max_z - min_z
-
-        # Simplified for demonstration purposes
-    
-        #Convert continuous probability distribution function into discrete distribution function for zenith angle
-        theta_val = np.linspace(0,np.pi/2,100)
-        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_val]
-        Norm = np.sum(probs)
-        norm_probs = np.multiply(1/Norm,probs)
-
-        theta = np.random.choice(theta_val, p=norm_probs)
         phi = np.random.uniform(0, 2 * np.pi)
         
         velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
@@ -840,7 +826,16 @@ class RPCSimulatorApp:
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity)
-    
+
+    def energy_dist(E):
+        #E In units of GeV
+
+        #Parameterise the distribution.
+        E_0 = 4.29
+
+        eps = 854
+
+
     def start_simulation_combinednano(self):
 
         """Function to start the simulation using parameters from the GUI."""
@@ -869,14 +864,30 @@ class RPCSimulatorApp:
         
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
+        #Sample from zenith angle distribution discretely.
+        probs = [4/(np.pi) * (np.cos(x))**2 for x in np.linspace(0,np.pi/2,100)]
+        norm_probs = np.multiply(1/(np.sum(probs)),probs)
+
+        #Sample energy from distribution.
+
+        energy_vals = np.linspace(0,300,1000)
+
+        
+
+        #Calculate necessary parameters outside of while loop.
+        max_z = max(rpc.height for rpc in self.rpc_list)
+        min_z = min(rpc.height for rpc in self.rpc_list)
+        h = max_z - min_z
+
         while sim_time < total_sim_time:
 
             time_to_next_muon = -np.log(1-np.random.uniform()) / rate
             sim_time += time_to_next_muon
             if sim_time > total_sim_time:
                 break
-        
-            muon_instance = self.generate_muon_at_time()
+                
+            theta = np.random.choice(np.linspace(0,np.pi/2,100), p=norm_probs)
+            muon_instance = self.generate_muon_at_time(theta=theta,h=h)
             
             if self.use_paths_var.get() == True:        
                 muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
@@ -1133,7 +1144,6 @@ class RPCSimulatorApp:
 
         #Simulation time in nanoseconds
         sim_time = self.sim_time_var.get()
-
 
         number_of_frames = int(sim_time)+1
 
