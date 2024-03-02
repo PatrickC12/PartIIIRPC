@@ -23,6 +23,10 @@ import queue
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
 
+global speed_of_light 
+speed_of_light = 0.299792458 # m/ns
+
+
 class RPC:
 
     def __init__(self,gas_mixture,efficiency,dimensions, strips, height,voltage, darkcount):
@@ -133,19 +137,19 @@ class muon:
 
         self.hits = []
 
+        #Gamma factor of muon given it's velocity
+
+        self.gamma = gamma
+
     def update_position(self,time_step):
 
         #Update the muon's current position due to its velocity.
         #Muons assumed to MIPs, such that their velocity is roughly constant over the simulation.
 
         #time_step is in units of nano-seconds ns.
-
-        speed_of_light = 0.299792458 # m/ns
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
 
     def check_hit(self,rpc_list,initial_time):
-
-        speed_of_light = 0.299792458 # m/ns
 
         if len(self.times)==0:
             init_time = initial_time
@@ -161,9 +165,7 @@ class muon:
                 self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
                 
     def stripped_check_hit(self, rpc_list, initial_time):
-
-        speed_of_light = 0.299792458 # m/ns
-        
+    
         if len(self.times)==0:
             init_time = initial_time
         else:
@@ -817,24 +819,26 @@ class RPCSimulatorApp:
 
         phi = np.random.uniform(0, 2 * np.pi)
         
-        velocity = np.multiply(0.98,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
-        
+        velocity = np.multiply(beta*speed_of_light,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
         time_of_travel = np.abs(h / velocity[2])
         
         extension = np.multiply(velocity, time_of_travel)
-        
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
-        return muon(position= position, velocity= velocity)
+        return muon(position= position, velocity= velocity, gamma = gamma)
 
     def energy_dist(E):
         #E In units of GeV
-
         #Parameterise the distribution.
+
         E_0 = 4.29
-
         eps = 854
+        n = 3.01
 
+        #Energy dist from paper.
+        p = ((E_0+E)**(-n))* ((1+ E / eps)**(-1))
+    
+        return p
 
     def start_simulation_combinednano(self):
 
@@ -871,8 +875,8 @@ class RPCSimulatorApp:
         #Sample energy from distribution.
 
         energy_vals = np.linspace(0,300,1000)
+        energy_probs = []
 
-        
 
         #Calculate necessary parameters outside of while loop.
         max_z = max(rpc.height for rpc in self.rpc_list)
