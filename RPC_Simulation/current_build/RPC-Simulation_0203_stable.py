@@ -796,7 +796,7 @@ class RPCSimulatorApp:
         self.sim_time_entry.pack(pady=5)
 
         #check if you need to simulate Path
-        self.use_paths_var = tk.BooleanVar(value=True)
+        self.use_paths_var = tk.BooleanVar()
         self.use_paths_check = ttk.Checkbutton(simulation_window, text="Use paths", variable=self.use_paths_var)
         self.use_paths_check.pack(pady=5)
 
@@ -855,7 +855,7 @@ class RPCSimulatorApp:
             "detected_z_position": [np.nan],
             "detection_time": [np.nan],
             "success": [np.nan]
-})
+            })
         muons = []
         sim_time = 0
         muon_index = 0
@@ -885,9 +885,7 @@ class RPCSimulatorApp:
                 muon_instance.stripped_check_hit(self.rpc_list, initial_time = sim_time)
             else:
                 muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
-                
-
-                       
+                 
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
                     "velocity": muon_instance.velocity,
@@ -903,7 +901,6 @@ class RPCSimulatorApp:
             muon_index += 1
             muons.append(muon_instance)
                 
-                
         if self.use_darkcount_var.get() == True:
             if self.use_strips_var.get() == False:
                 for rpc in self.rpc_list:  
@@ -915,7 +912,6 @@ class RPCSimulatorApp:
                     dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, total_sim_time))
                     detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
                 
-        
         df_detected_muons = pd.DataFrame(detected_muons)
         if self.use_darkcount_var.get() == True:
             df_detected_muons = pd.concat([detected_dark_muons, df_detected_muons], ignore_index=True)
