@@ -222,50 +222,50 @@ class RPCSimulatorApp:
         master.title("Ultimate RPC Tracking station simulation")
 
         self.style = ttk.Style()
-        self.style.configure('custom.TFrame',relief='solid')
+        self.style.configure('custom.TFrame', relief='solid')
 
         self.frame = ttk.Frame(master,style='custom.TFrame')
-        self.frame.pack()
+        self.frame.pack(fill='both', expand=True)
 
-        #Banners and Images
+        # Banners and Images
         self.img = Image.open(current_directory + "\RPC_Simulation\images\Banner.png")
         self.img = self.img.resize((400,120))
         self.img_tk = ImageTk.PhotoImage(self.img)
 
-        self.banner = ttk.Label(self.frame, image= self.img_tk)
-        self.banner.pack(side='top',pady= 20)
+        self.banner = ttk.Label(self.frame, image=self.img_tk)
+        self.banner.grid(row=0, column=0, columnspan=2, pady=20)
 
         self.img2 = Image.open(current_directory + "\RPC_Simulation\images\wip.jpg")
         self.img2 = self.img2.resize((300,120))
         self.img_tk2 = ImageTk.PhotoImage(self.img2)
 
-        self.banner = ttk.Label(self.frame, image= self.img_tk2)
-        self.banner.pack(side='bottom',pady= 20)
+        self.banner2 = ttk.Label(self.frame, image=self.img_tk2)
+        self.banner2.grid(row=7, column=0, columnspan=2, pady=20)
 
-        #Buttons
+        # Buttons
         self.rpc_list = []
 
         self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates (WIP)", command=self.manage_rpc_window)
-        self.manage_rpc_button.pack(pady=5)
+        self.manage_rpc_button.grid(row=1, column=1, pady=20)
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
-        self.log_button.pack(pady=20)
+        self.log_button.grid(row=1, column=0, pady=20)
 
-        self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate cosmic ray muons through setup',font = 30)
-        self.nanoscale_sim_desc.pack(pady=10) 
+        self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate cosmic ray muons through setup', font=30)
+        self.nanoscale_sim_desc.grid(row=2, column=0, columnspan=2, pady=10)
 
         self.simulation_var = tk.BooleanVar(value=True)
-        self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanoseconds scale simulation', variable = self.simulation_var, value = True)
-        self.simulation_nano_checkbox.pack(anchor='center')
+        self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanoseconds scale simulation', variable=self.simulation_var, value=True)
+        self.simulation_nano_checkbox.grid(row=3, column=0, columnspan=2, pady=5)
 
-        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation (WIP)', variable = self.simulation_var, value = False)
-        self.simulation_norm_checkbox.pack(anchor= 'center',pady=10)
+        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation (WIP)', variable=self.simulation_var, value=False)
+        self.simulation_norm_checkbox.grid(row=4, column=0, columnspan=2, pady=10)
 
         self.simulate_button = ttk.Button(self.frame, text="Run cosmic ray muon simulation", style='success.TButton', command=self.run_simulation)
-        self.simulate_button.pack(pady=10) 
+        self.simulate_button.grid(row=5, column=0, columnspan=2, pady=10)
 
-        self.nanoscale_sim_desc = tk.Label(self.frame, text='Simulate decaying LLNP (WIP)',font = 30)
-        self.nanoscale_sim_desc.pack(pady=10) 
+        self.nanoscale_sim_desc2 = tk.Label(self.frame, text='Simulate decaying LLNP (WIP)', font=30)
+        self.nanoscale_sim_desc2.grid(row=6, column=0, columnspan=2, pady=10) 
         
         #???, is this for multicore threading?
         self.queue = queue.Queue()
@@ -321,7 +321,7 @@ class RPCSimulatorApp:
         self.edit_rpc_attributes_ui(edit_window)
 
         save_button = ttk.Button(edit_window, text="Update RPC", command=lambda: self.update_rpc(edit_window))
-        save_button.pack(pady=5)
+        save_button.grid(row=15,column=1,pady=5)
 
     def create_rpc_window(self):
         rpc_window = tk.Toplevel(self.master)
@@ -420,8 +420,7 @@ class RPCSimulatorApp:
 
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
-        self.selected_gases = {gas: (tk.BooleanVar(), tk.DoubleVar()) for gas in self.gases}
-        self.gas_percentage = {}
+        self.selected_gases = {gas: [tk.BooleanVar(), tk.DoubleVar()] for gas in self.gases}
 
         i = 9
     
@@ -454,13 +453,14 @@ class RPCSimulatorApp:
         current_rpc = self.rpc_list[selection_index]
 
         current_voltage = float(current_rpc.voltage) if current_rpc.voltage else 0.0
-        #current_gas_mixture = float(current_rpc.gas_mixture) if current_rpc.gas_mixture else {}
         current_efficiency = float(current_rpc.efficiency) if current_rpc.efficiency else 0.0
         current_height = float(current_rpc.height) if current_rpc.height else 0.0
         current_x = float(current_rpc.dimensions[0]) if current_rpc.dimensions[0] else 0.0
         current_y = float(current_rpc.dimensions[1]) if current_rpc.dimensions[1] else 0.0
         current_t = float(current_rpc.dimensions[2]*1000) if current_rpc.dimensions[2] else 0.0 
         current_darkcount = float(current_rpc.darkcount) if current_rpc.darkcount else 0.0
+        current_x_strips = int(current_rpc.strips[1]) if current_rpc.strips[0] else 0
+        current_y_strips = int(current_rpc.strips[0]) if current_rpc.strips[1] else 0
 
         #UI Elements for entering the attributes of the RPC being added.
 
@@ -503,68 +503,111 @@ class RPCSimulatorApp:
         self.t_var_entry.grid(row=4, column= 1, pady = 5)
         
         self.xs_var_label = ttk.Label(edit_window, text="Number of strips in x direction: ")
-        self.xs_var_label.grid(row=6, column= 0, pady = 5)
+        self.xs_var_label.grid(row=5, column= 0, pady = 5)
         self.xs_var = tk.DoubleVar()
+        self.xs_var.set(current_x_strips)
         self.xs_var_entry = ttk.Entry(edit_window, textvariable=self.xs_var)
-        self.xs_var_entry.grid(row=6, column= 1, pady = 5)
+        self.xs_var_entry.grid(row=5, column= 1, pady = 5)
         
         self.ys_var_label = ttk.Label(edit_window, text="Number of strips in y direction: ")
-        self.ys_var_label.grid(row=7, column= 0, pady = 5)
+        self.ys_var_label.grid(row=6, column= 0, pady = 5)
         self.ys_var = tk.DoubleVar()
+        self.ys_var.set(current_y_strips)
         self.ys_var_entry = ttk.Entry(edit_window, textvariable=self.ys_var)
-        self.ys_var_entry.grid(row=7, column= 1, pady = 5)
+        self.ys_var_entry.grid(row=6, column= 1, pady = 5)
         
         self.darkcount_label = ttk.Label(edit_window, text="Darkcount rate /ns: ")
-        self.darkcount_label.grid(row=8, column= 0, pady = 5)
+        self.darkcount_label.grid(row=7, column= 0, pady = 5)
         self.darkcount = tk.DoubleVar()
         self.darkcount.set(current_darkcount)
         self.darkcount_entry = ttk.Entry(edit_window, textvariable=self.darkcount)
-        self.darkcount_entry.grid(row=8, column= 1, pady = 5)
+        self.darkcount_entry.grid(row=7, column= 1, pady = 5)
+
+        self.gas_desc = tk.Label(edit_window, text='% Of Gas mixture by volume: ',font = 5)
+        self.gas_desc.grid(row=8,column=1, pady=2)
         
+        #current_gas_mixture = float(current_rpc.gas_mixture) if current_rpc.gas_mixture else {}
+
         # Gas mixture of RPC
         self.gases = ["Isobutane", "Argon", "CO2", "N2"]
-        self.selected_gases = {gas: (tk.BooleanVar(), tk.DoubleVar()) for gas in self.gases}
-        self.gas_percentage = {}
 
-        i = 8
+        if current_rpc.gas_mixture:
+            self.selected_gases = current_rpc.gas_mixture
+        else:
+            self.selected_gases = {gas: [tk.BooleanVar(), tk.DoubleVar()] for gas in self.gases}
+
+        i = 9
     
         for gas in self.gases:
 
-            # Gas percentage entry box
-            gas_frame = ttk.Frame(edit_window)
-            gas_frame.grid(row=i, column=0, pady=5)
+            if gas in self.selected_gases:
+                gas_percentage_var = tk.DoubleVar()  # Use local variable instead of self.gas_percentage_var
+                gas_percentage_var.set(self.selected_gases[gas])
+                gas_percentage_entry = ttk.Entry(edit_window, textvariable=gas_percentage_var, state="normal")
+                gas_percentage_entry.grid(row=i, column= 1, pady = 5)
 
-            gas_percentage_var = tk.DoubleVar()  # Use local variable instead of self.gas_percentage_var
-            gas_percentage_entry = ttk.Entry(gas_frame, textvariable=gas_percentage_var, state="disabled")
-            gas_percentage_entry.grid(row=0, column= 2, pady = 5)
+                # Checkbox
+                select_gas = tk.BooleanVar()  # Use local variable instead of self.select_gas
+                select_gas.set(True)
+                chk = ttk.Checkbutton(edit_window, text=gas, variable=select_gas, command=lambda v=select_gas, e=gas_percentage_entry: self.show_entry(v, e))
+                chk.grid(row=i, column= 0, pady = 5)
 
-            # Checkbox
-            select_gas = tk.BooleanVar()  # Use local variable instead of self.select_gas
-            chk = ttk.Checkbutton(gas_frame, text=gas, variable=select_gas, command=lambda v=select_gas, e=gas_percentage_entry: self.show_entry(v, e))
-            chk.grid(row=0, column= 0, pady = 5)
+                # Add gas selection to dictionary when checkbox is clicked
+                self.selected_gases[gas] = (select_gas, gas_percentage_var)  # Store variables, not their current values
 
-            # Gas percentage label
-            gas_percentage_var_label = ttk.Label(gas_frame, text="% Of Gas mixture by volume: ")
-            gas_percentage_var_label.grid(row=0, column= 1, pady = 5)
+            else:
+            
+                gas_percentage_var = tk.DoubleVar()  # Use local variable instead of self.gas_percentage_var
+                gas_percentage_entry = ttk.Entry(edit_window, textvariable=gas_percentage_var, state="disabled")
+                gas_percentage_entry.grid(row=i, column= 1, pady = 5)
 
-            # Add gas selection to dictionary when checkbox is clicked
-            self.selected_gases[gas] = (select_gas, gas_percentage_var)  # Store variables, not their current values
+                # Checkbox
+                select_gas = tk.BooleanVar()  # Use local variable instead of self.select_gas
+                chk = ttk.Checkbutton(edit_window, text=gas, variable=select_gas, command=lambda v=select_gas, e=gas_percentage_entry: self.show_entry(v, e))
+                chk.grid(row=i, column= 0, pady = 5)
+
+                # Add gas selection to dictionary when checkbox is clicked
+                self.selected_gases[gas] = (select_gas, gas_percentage_var)  # Store variables, not their current values
 
             i+=1
                     
         # Efficiency of RPC
         self.efficiency_var_label = ttk.Label(edit_window, text="Hit efficiency of the RPC: ")
-        self.efficiency_var_label.grid(row=13, column= 0, pady = 5)
+        self.efficiency_var_label.grid(row=14, column= 0, pady = 5)
         self.efficiency_var = tk.DoubleVar()
         self.efficiency_var.set(current_efficiency)
         self.efficiency_var_entry = ttk.Entry(edit_window, textvariable=self.efficiency_var)
-        self.efficiency_var_entry.grid(row=13, column= 1, pady = 5)
+        self.efficiency_var_entry.grid(row=14, column= 1, pady = 5)
 
 ###################################################################################################################
 #Data Logging section
 ################################################################################################################### 
 #save_rpc function saves the rpc configuration temporarily in combobox
     def save_rpc(self, rpc_window):
+
+        # Get user inputs and create RPC object
+
+        height = float(self.height_var.get())
+        voltage = float(self.voltage_var.get())
+        #dimensions in metres.
+        dimensions = [float(self.x_var.get()), float(self.y_var.get()),float(self.t_var.get())/1000]
+        strips = [int(self.xs_var.get()), int(self.ys_var.get())]
+        efficiency = float(self.efficiency_var.get())
+        gas_mixture = {gas: percentage.get() for gas, (selected, percentage) in self.selected_gases.items() if selected.get()}
+        darkcount = float(self.darkcount.get())
+        new_rpc = RPC(height=height, efficiency=efficiency,
+                        dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture, darkcount=darkcount)
+        
+
+        # Add RPC object to the array
+        self.rpc_list.append(new_rpc)
+
+        self.update_rpc_combobox()
+
+        # Close the RPC window
+        rpc_window.destroy()
+
+    def update_rpc(self, edit_window):
 
         selection_index = self.rpc_combobox.current()
 
@@ -581,31 +624,8 @@ class RPCSimulatorApp:
         new_rpc = RPC(height=height, efficiency=efficiency,
                         dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture, darkcount=darkcount)
         
-        # Add RPC object to the array
+        # Update RPC object in the array
         self.rpc_list[selection_index] = new_rpc
-        
-        self.update_rpc_combobox()
-
-        # Close the RPC window
-        rpc_window.destroy()
-
-    def update_rpc(self, edit_window):
-
-        # Get user inputs and create RPC object
-
-        height = float(self.height_var.get())
-        voltage = float(self.voltage_var.get())
-        #dimensions in metres.
-        dimensions = [float(self.x_var.get()), float(self.y_var.get()),float(self.t_var.get())/1000]
-        strips = [int(self.xs_var.get()), int(self.ys_var.get())]
-        efficiency = float(self.efficiency_var.get())
-        gas_mixture = {gas: percentage.get() for gas, (selected, percentage) in self.selected_gases.items() if selected.get()}
-        darkcount = float(self.darkcount.get())
-        new_rpc = RPC(height=height, efficiency=efficiency,
-                        dimensions=dimensions,strips = strips, voltage=voltage, gas_mixture=gas_mixture, darkcount=darkcount)
-        
-        # Add RPC object to the array
-        self.rpc_list.append(new_rpc)
         
         self.update_rpc_combobox()
 
