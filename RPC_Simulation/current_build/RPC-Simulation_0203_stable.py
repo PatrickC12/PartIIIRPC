@@ -161,6 +161,8 @@ class muon:
                 self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
                 
     def stripped_check_hit(self, rpc_list, initial_time):
+
+        speed_of_light = 0.299792458 # m/ns
         
         if len(self.times)==0:
             init_time = initial_time
@@ -172,7 +174,7 @@ class muon:
             self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / self.velocity[2] if self.velocity[2] != 0 else float('inf')
-            if 0 < self.position[0] + self.velocity[0] * time_to_rpc < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc < rpc.dimensions[1]:
+            if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:
                 # Calculate position at the time of potential detection
                 x_pos = self.position[0] + self.velocity[0] * time_to_rpc
                 y_pos = self.position[1] + self.velocity[1] * time_to_rpc
@@ -1427,6 +1429,8 @@ if __name__ == "__main__":
         # Still alot of wasted muons, make sure muons produced go to bottom plate.
         # Add error if no detected muons produced...
         #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
+        #BUG: Clicking add RPC then exiting that window and attempting to edit current RPC gives nonsenical
+        #values in the gas_mixture dictionary
 
 #Important:
 #add reconstructino algorithms to measure reconstruction efficiency
