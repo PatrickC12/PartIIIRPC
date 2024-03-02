@@ -23,9 +23,12 @@ import queue
 # Setting the Seaborn theme
 sns.set_theme(style="darkgrid")
 
+#Defining global variables.
 global speed_of_light 
 speed_of_light = 0.299792458 # m/ns
 
+global muon_mass
+muon_mass = 0.1057 #GeV/c**2
 
 class RPC:
 
@@ -151,6 +154,11 @@ class muon:
 
     def check_hit(self,rpc_list,initial_time):
 
+        ##Figure out dilated half-life from gamma factor.
+
+        t_half = gamma*(2200) #in ns
+        rate = np.log(2)/t_half
+
         if len(self.times)==0:
             init_time = initial_time
         else:
@@ -159,10 +167,13 @@ class muon:
         for rpc in rpc_list:
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
             time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
-            if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light< rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:    
-                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, success])
-            else:
-                self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
+            #ACCOUNT FOR POSSIBILITY OF MUON DECAYING, markovian process, so independent of if the muon has survived journey to previous RPC.
+            if rate*np.exp(-rate*(time_to_rpc)) > np.random.rand():
+                ###Muon survives until this RPC
+                if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light< rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:    
+                    self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, success])
+                else:
+                    self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, 'out'])
                 
     def stripped_check_hit(self, rpc_list, initial_time):
     
@@ -815,14 +826,21 @@ class RPCSimulatorApp:
         self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_combinednano)
         self.start_sim_button.pack(pady=5)
     
-    def generate_muon_at_time(self,theta,h):
+    def generate_muon_at_time(self,theta,h,energy):
 
+        gamma = energy / muon_mass
+        beta = np.sqrt(1-1/(gamma**2))
+
+
+
+        #Could alternate phi such that it always points towards atleast one RPC.
         phi = np.random.uniform(0, 2 * np.pi)
         
-        velocity = np.multiply(beta*speed_of_light,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
-        time_of_travel = np.abs(h / velocity[2])
+        velocity = np.multiply(beta,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
+        time_of_travel = np.abs(h / (velocity[2])*speed_of_light)
         
-        extension = np.multiply(velocity, time_of_travel)
+        #This feels wrong, will change soon....
+        extension = np.multiply(velocity, time_of_travel*speed_of_light)
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity, gamma = gamma)
@@ -869,14 +887,15 @@ class RPCSimulatorApp:
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
         #Sample from zenith angle distribution discretely.
-        probs = [4/(np.pi) * (np.cos(x))**2 for x in np.linspace(0,np.pi/2,100)]
+        theta_vals = np.linspace(0,np.pi/2,100)
+        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_vals]
         norm_probs = np.multiply(1/(np.sum(probs)),probs)
 
         #Sample energy from distribution.
 
-        energy_vals = np.linspace(0,300,1000)
-        energy_probs = []
-
+        energy_vals = np.linspace(muon_mass,300,10000)
+        energy_probs = [energy_dist(x) for x in energy_vals]
+        norm_energy_probs = np.multiply(1/(np.sum(energy_probs)),energy_probs)
 
         #Calculate necessary parameters outside of while loop.
         max_z = max(rpc.height for rpc in self.rpc_list)
@@ -890,8 +909,9 @@ class RPCSimulatorApp:
             if sim_time > total_sim_time:
                 break
                 
-            theta = np.random.choice(np.linspace(0,np.pi/2,100), p=norm_probs)
-            muon_instance = self.generate_muon_at_time(theta=theta,h=h)
+            theta = np.random.choice(theta_vals, p=norm_probs)
+            energy = np.random.choice(energy_vals, p=norm_energy_probs)
+            muon_instance = self.generate_muon_at_time(theta=theta,h=h,energy = energy)
             
             if self.use_paths_var.get() == True:        
                 muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
