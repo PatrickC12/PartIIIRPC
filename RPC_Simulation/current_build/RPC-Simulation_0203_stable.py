@@ -1212,6 +1212,8 @@ class RPCSimulatorApp:
         plt.title("Muon energy distribution")
         plt.show()
 
+    def plot_zenith_angle_distribution(self,df_selected_muons,muons):
+        continue
     def save_data_again(self, muons):
         filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
         if filepath:
