@@ -1583,19 +1583,17 @@ if __name__ == "__main__":
     app = RPCSimulatorApp(root)
     root.mainloop()
 
-#Later ideas:
+#TODO:
         # Generate a decaying particle, some set lifetime.
         # Create charge products, trace paths of products, do animation.
         # Run example for ANUBIS tracking station.
         # plot_detected_muons function should plot muon trajectories of tagged muons.
-        # Improve RPC updating widget and RPC text files. Make this more user friendly.
         # Gaussian voltage distribution, overlap with detector strips. Threshold
-        # Still alot of wasted muons, make sure muons produced go to bottom plate.
-        # Add error if no detected muons produced...
-        #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
         #BUG: Clicking add RPC then exiting that window and attempting to edit current RPC gives nonsenical
         #values in the gas_mixture dictionary
         #BUG: ATM NO MUONS SEEM TO MISS 2nd RPC?????
+        #IMPLEMENT NEW CHECK HIT WITH CHECKHIT DARK AND STRIPPED ETC!!!!!!!!!!!!!!!!
+        #FIX NORMSCALE ALGORITHM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 #Important:
 #add reconstructino algorithms to measure reconstruction efficiency
