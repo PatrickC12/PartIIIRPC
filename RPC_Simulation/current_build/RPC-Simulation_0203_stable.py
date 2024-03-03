@@ -757,7 +757,6 @@ class RPCSimulatorApp:
                         self.rpc_list.append(rpc)
 
                         print(f"RPC {i} successfully added")
-                        print(self.rpc_list)
 
 ###################################################################################################################
 #3D plot section
@@ -797,8 +796,7 @@ class RPCSimulatorApp:
     
 ###################################################################################################################
 # Nanosecond Scale Simulation Section
-################################################################################################################### 
-        
+###################################################################################################################        
     def run_simulation_window_nano(self):
 
         simulation_window = tk.Toplevel(self.master)
@@ -849,13 +847,11 @@ class RPCSimulatorApp:
         phi = np.random.uniform(0, 2 * np.pi)
         
         velocity = np.multiply(beta,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
-        print(theta,E, velocity[2])
         time_of_travel = np.abs(h / velocity[2])
 
         #This feels wrong, will change soon....
         
         extension = np.multiply(velocity, time_of_travel)
-        print(extension)
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity, gamma = gamma, energy=E)
@@ -1116,7 +1112,7 @@ class RPCSimulatorApp:
         view_data_button.pack(pady=5)
 
         # Button to plot data on 3D plot
-        plot_data_button = ttk.Button(dialog_window, text="Plot Data", command=lambda: self.plot_detected_muons(muons))
+        plot_data_button = ttk.Button(dialog_window, text="Plot Muon Distributions", command=lambda: self.plot_muon_distributions(df_selected_muons,muons))
         plot_data_button.pack(pady=5)
 
         # Button to save data into a CSV
@@ -1157,8 +1153,64 @@ class RPCSimulatorApp:
         except ImportError:
             messagebox.showerror("Import Error", "pandastable module is not installed. Please install it to view data.")
 
-    def plot_detected_muons(self, df):
-        self.plot_stations_3d(df)
+    def plot_muon_distributions(self, df_selected_muons,muons):
+
+        muon_distributions_window = tk.Toplevel(self.master)
+        muon_distributions_window.title("Plot muon distributions")
+
+        self.plot_energy_distribution_button = ttk.Button(muon_distributions_window,text="Plot muon energy distribution", command=lambda: self.plot_muon_energy_distribution(df_selected_muons,muons))
+        self.plot_energy_distribution_button.grid(row=0,column=0,pady=5,padx=20)
+
+    def plot_muon_energy_distribution(self,df_selected_muons,muons):
+
+        energies = [x.energy for x in muons if x.energy<50] #energies in GeV
+        num_points = len(energies)
+
+        def energy_dist(E):
+            #E In units of GeV
+            #Parameterise the distribution.
+            E_0 = 4.29
+            eps = 854
+            n = 3.01
+            #Energy dist from literature.
+            p = ((E_0+E)**(-n))* ((1+ E / eps)**(-1))
+            return p
+        
+        energy_vals = np.linspace(0,300,100000)
+        energy_probs = np.array([energy_dist(x) for x in energy_vals])
+        norm_energy_probs = energy_probs / np.sum(energy_probs)
+
+        cdf = np.cumsum(norm_energy_probs)
+        cdf_spacing = 300 / 1e5
+
+        plt.figure()
+
+        #Plot histogram of data.
+        num_bins = 100  # Adjust the number of bins as needed
+        counts, bin_edges, _= plt.hist(energies, bins=num_bins, alpha=0.7, label='Simulated muon distribution')
+        
+        bin_midpoints = []
+        midpoint_freq = []
+
+        bin_midpoints = [(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)]
+
+        for j in range(len(bin_edges)-1):
+            start_bin_index = int(np.floor(bin_edges[j]/ cdf_spacing))
+            end_bin_index = int(np.floor(bin_edges[j+1]/ cdf_spacing))
+            cum_prob = cdf[end_bin_index]-cdf[start_bin_index]
+            freq = cum_prob * num_points
+            midpoint_freq.append(freq)
+
+        #Plot distribution from literature.
+        energies = np.linspace(0,50,1000)
+        plt.plot(bin_midpoints,midpoint_freq,c='red',label='Generating distribution')
+
+        plt.xlabel("Energy/GeV")
+        plt.ylabel("Frequency")
+
+        plt.xlim(left=0)
+        plt.title("Muon energy distribution")
+        plt.show()
 
     def save_data_again(self, muons):
         filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
