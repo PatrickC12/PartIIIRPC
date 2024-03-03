@@ -852,7 +852,9 @@ class RPCSimulatorApp:
         time_of_travel = np.abs(h / velocity[2])
         
         #This feels wrong, will change soon....
+        
         extension = np.multiply(velocity, time_of_travel)
+        print(extension)
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity, gamma = gamma, energy=E)
