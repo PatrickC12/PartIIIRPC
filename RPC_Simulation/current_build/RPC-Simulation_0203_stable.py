@@ -79,7 +79,7 @@ class RPC:
                 "detected_y_position": y_position,
                 "detected_z_position": self.height,
                 "detection_time": detection_time,
-                "success": 'dark'
+                "Outcome": 'dark'
             })
             
         return darkcountdata
@@ -107,7 +107,7 @@ class RPC:
                 "detected_y_position": y_strip,
                 "detected_z_position": self.height,
                 "detection_time": detection_time,
-                "success": 'dark'
+                "Outcome": 'dark'
             })
         return darkcountdatastripped
     
@@ -129,15 +129,14 @@ class muon:
 
         #Add starting frame number for muon trajectory, useful for some plots
         self.starting_frame = 0
-        self.hits = []
         
+        # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
+        # [[x,y,z,t,"Outcome"],...,[]]
         self.detected_5vector = []
         
         self.stripped_detected_5vector = []
 
-        # List containing information on coordinates and times a muon passes through an RPC plate. Y/N is whether or not the RPC registers the hit.
-        # [[x,y,z,t,Y/N],...,[]]
-
+        #This attribute is never retrieved anywhere???
         self.hits = []
 
         #Gamma factor of muon given it's velocity
@@ -153,7 +152,7 @@ class muon:
         #time_step is in units of nano-seconds ns.
         self.position+= np.multiply(self.velocity,speed_of_light*time_step)
 
-    def check_hit(self,rpc_list,initial_time):
+    def check_hit(self,sorted_rpc_list,initial_time):
 
         ##Figure out dilated half-life from gamma factor.
 
@@ -164,20 +163,29 @@ class muon:
             init_time = initial_time
         else:
             init_time = self.times[0]
+
+        times_to_rpcs = [0]
     
-        for x,rpc in enumerate(rpc_list):
+        for x,rpc in enumerate(sorted_rpc_list):
 
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
-            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
+            time_to_rpc = (rpc.height - max(rpc.height for rpc in sorted_rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
+            times_to_rpcs.append(time_to_rpc)
 
-            #ACCOUNT FOR POSSIBILITY OF MUON DECAYING, markovian process, so independent of if the muon has survived journey to previous RPC.
-            if rate*np.exp(-rate*(time_to_rpc)) > np.random.rand():
+            #ACCOUNT FOR POSSIBILITY OF MUON DECAYING
+            if np.exp(-rate*(times_to_rpcs[x+1]-times_to_rpcs[x])) > np.random.rand():
                 ###Muon survives until this RPC
                 if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light< rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:    
                     self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, success])
                 else:
                     self.detected_5vector.append([self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light, self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light, rpc.height, init_time + time_to_rpc, f'Missed RPC {x+1}'])
                 
+            else:
+                ###Muon decays between previous RPC and current RPC.
+                self.detected_5vector.append([float('inf'),float('inf'),float('inf'),init_time + time_to_rpc,f"Muon decayed between RPCs {x} and {x+1}"])
+                #Break out of the loop, muon has decayed and can no longer be detected.
+                break
+
     def stripped_check_hit(self, rpc_list, initial_time):
     
         if len(self.times)==0:
@@ -834,15 +842,17 @@ class RPCSimulatorApp:
         E = energy #GeV
         gamma = E / muon_mass
         beta = np.sqrt(1-1/(gamma**2))
+        # beta = 0.98
+        # gamma = np.sqrt(1/(1-beta**2))
 
         #Could alternate phi such that it always points towards atleast one RPC.
         phi = np.random.uniform(0, 2 * np.pi)
         
         velocity = np.multiply(beta,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
-        time_of_travel = np.abs(h / (velocity[2]*speed_of_light))
+        time_of_travel = np.abs(h / velocity[2])
         
         #This feels wrong, will change soon....
-        extension = np.multiply(velocity, time_of_travel*speed_of_light)
+        extension = np.multiply(velocity, time_of_travel)
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
         return muon(position= position, velocity= velocity, gamma = gamma, energy=E)
@@ -873,7 +883,7 @@ class RPCSimulatorApp:
             "detected_y_position": [np.nan],
             "detected_z_position": [np.nan],
             "detection_time": [np.nan],
-            "success": [np.nan]
+            "Outcome": [np.nan]
             })
         muons = []
         sim_time = 0
@@ -904,6 +914,12 @@ class RPCSimulatorApp:
         min_z = min(rpc.height for rpc in self.rpc_list)
         h = max_z - min_z
 
+        def sort_func(x):
+            return x.height
+        
+        self.rpc_list.sort(key=sort_func,reverse=True)
+        sorted_rpc_list = self.rpc_list
+
         while sim_time < total_sim_time:
 
             time_to_next_muon = -np.log(1-np.random.uniform()) / rate
@@ -921,7 +937,7 @@ class RPCSimulatorApp:
             if self.use_strips_var.get() == True:
                 muon_instance.stripped_check_hit(self.rpc_list, initial_time = sim_time)
             else:
-                muon_instance.check_hit(self.rpc_list,initial_time = sim_time)
+                muon_instance.check_hit(sorted_rpc_list,initial_time = sim_time)
                  
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -931,7 +947,7 @@ class RPCSimulatorApp:
                     "detected_y_position":x[1],
                     "detected_z_position": x[2],
                     "detection_time": x[3],
-                    "success":x[4],
+                    "Outcome":x[4],
                     "Energy/ GeV":muon_instance.energy
 
                         })
@@ -1066,7 +1082,7 @@ class RPCSimulatorApp:
                 "detected_y_position":x[1],
                 "detected_z_position": x[2],
                 "detection_time": x[3],
-                "success":x[4]
+                "Outcome":x[4]
 
                     })
             muon_index += 1
@@ -1314,7 +1330,7 @@ class RPCSimulatorApp:
                 relevant_muons = [index for index, times in muon_detection_times.items() if times['min'] <= frame <= times['max']]
                 if relevant_muons:
                     # Filter dataframe for relevant muons.
-                    current_data_line = df[df['muon_index'].isin(relevant_muons) & (df['success'] != 'out')]
+                    current_data_line = df[df['muon_index'].isin(relevant_muons) & ((df['Outcome'] == 'Y') | (df['Outcome'] == 'N'))]
                     current_data_line = current_data_line.dropna(subset=['detected_x_position', 'detected_y_position', 'detected_z_position'])
                     
                     # Group by muon_index and draw lines for each group.
@@ -1464,12 +1480,12 @@ if __name__ == "__main__":
         #TOP PLATE BEING TRIGGERED WHEN BOTTOM ONE SHOULD BE !
         #BUG: Clicking add RPC then exiting that window and attempting to edit current RPC gives nonsenical
         #values in the gas_mixture dictionary
+        #BUG: ATM NO MUONS SEEM TO MISS 2nd RPC?????
 
 #Important:
 #add reconstructino algorithms to measure reconstruction efficiency
 #API for external use outside of GUI (Start making measurements)
 #Connect with Garfield++ in the linux system (Simulation within gas gaps)
-#Add energy distributions for different velocity of muons
 #Make presets for quality of life changes
 
 
