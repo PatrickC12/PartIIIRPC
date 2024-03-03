@@ -849,8 +849,9 @@ class RPCSimulatorApp:
         phi = np.random.uniform(0, 2 * np.pi)
         
         velocity = np.multiply(beta,[np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)])
+        print(theta,E, velocity[2])
         time_of_travel = np.abs(h / velocity[2])
-        
+
         #This feels wrong, will change soon....
         
         extension = np.multiply(velocity, time_of_travel)
@@ -901,13 +902,14 @@ class RPCSimulatorApp:
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
         #Sample from zenith angle distribution discretely.
-        theta_vals = np.linspace(0,np.pi/2,100)
+        theta_vals = np.linspace(0,np.pi/2,100,endpoint=False)
         probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_vals]
         norm_probs = np.multiply(1/(np.sum(probs)),probs)
 
         #Sample energy from distribution.
 
-        energy_vals = np.linspace(muon_mass,300,10000)
+        #sampling 0.01 above muon_mass to avoid infinite time between rpcs.
+        energy_vals = np.linspace(muon_mass+0.01,300,10000)
         energy_probs = [energy_dist(x) for x in energy_vals]
         norm_energy_probs = np.multiply(1/(np.sum(energy_probs)),energy_probs)
 
