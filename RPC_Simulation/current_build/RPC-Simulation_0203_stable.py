@@ -275,7 +275,7 @@ class RPCSimulatorApp:
         # Buttons
         self.rpc_list = []
 
-        self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates (WIP)", command=self.manage_rpc_window)
+        self.manage_rpc_button = ttk.Button(self.frame, text="Manage RPC Plates", command=self.manage_rpc_window)
         self.manage_rpc_button.grid(row=1, column=1, pady=20)
 
         self.log_button = ttk.Button(self.frame, text="Save/Load RPC Log", command=self.log_rpc_window)
@@ -288,7 +288,7 @@ class RPCSimulatorApp:
         self.simulation_nano_checkbox = ttk.Radiobutton(self.frame, text='Nanoseconds scale simulation', variable=self.simulation_var, value=True)
         self.simulation_nano_checkbox.grid(row=3, column=0, columnspan=2, pady=5)
 
-        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation (WIP)', variable=self.simulation_var, value=False)
+        self.simulation_norm_checkbox = ttk.Radiobutton(self.frame, text='Seconds scale simulation', variable=self.simulation_var, value=False)
         self.simulation_norm_checkbox.grid(row=4, column=0, columnspan=2, pady=10)
 
         self.simulate_button = ttk.Button(self.frame, text="Run cosmic ray muon simulation", style='success.TButton', command=self.run_simulation)
@@ -1422,7 +1422,7 @@ class RPCSimulatorApp:
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
 
                 # Add text annotation for simulation time
-                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+                ax.annotate(f'Simulation time/ns = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
                 if  frame == number_of_frames-1:
                     x_accumulated.clear()
@@ -1439,11 +1439,11 @@ class RPCSimulatorApp:
             else:
 
                 scat = ax.scatter([],[],[])
-                ax.annotate(f'Simulation time/s = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+                ax.annotate(f'Simulation time/ns = {frame}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
                 # Filter data for the cumulative frame.
                 # 1 frame = 1 ns
-
+                        # Do we really want equality for both conditions here?
                 current_data = df[(frame-1 <= df['detection_time']) & (df['detection_time'] <= frame)]
                 x_current = current_data['detected_x_position'].values
                 y_current = current_data['detected_y_position'].values
@@ -1477,6 +1477,7 @@ class RPCSimulatorApp:
                 
                 
                 muon_detection_times = df.groupby('muon_index')['detection_time'].agg(['min', 'max']).to_dict('index')
+                #Again do we really want equality for both conditions here?
                 relevant_muons = [index for index, times in muon_detection_times.items() if times['min'] <= frame <= times['max']]
                 if relevant_muons:
                     # Filter dataframe for relevant muons.
@@ -1512,6 +1513,129 @@ class RPCSimulatorApp:
         plt.show()
 
     def play_video_norm(self,muons,df_selected_muons):
+        # Create a figure and a 3D axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        df_muons = df_selected_muons
+
+        # Initialize empty arrays to store accumulated positions
+        x_accumulated, y_accumulated, z_accumulated = [], [], []
+        
+        for rpc in self.rpc_list:
+            z = rpc.height
+            width, length, _ = rpc.dimensions
+
+            vertices = np.array([[0, 0, z],
+                                [width, 0, z],
+                                [width, length, z],
+                                [0, length, z]])
+            
+            # Define the vertices of the rectangle
+            faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+            poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1)
+            ax.add_collection3d(poly3d)
+
+        sim_time = self.sim_time_var.get()#Simulation time in seconds
+
+        number_of_frames = int(sim_time*50) #1 Frame is 20ms
+
+        def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated, df_muons = df_muons):
+                
+            #If you would like to keep the trajectory plotted, then just remove ax.cla().
+            ax.cla()
+
+            time = frame*(2e7)#time of simulation in ns
+
+            for rpc in self.rpc_list:
+                z = rpc.height
+                width, length, _ = rpc.dimensions
+
+                vertices = np.array([[0, 0, z],
+                                    [width, 0, z],
+                                    [width, length, z],
+                                    [0, length, z]])
+                
+                # Define the vertices of the rectangle
+                faces = [[vertices[0], vertices[1], vertices[2], vertices[3]]]
+                poly3d = Poly3DCollection(faces, alpha=0.01, edgecolors='r', linewidths=1, facecolors='cyan')
+                ax.add_collection3d(poly3d)
+
+            scat = ax.scatter([],[],[])
+            ax.annotate(f'Simulation time/s = {frame*(20e-3):.2f}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
+
+            # Filter data for the cumulative frame.
+            # 1 frame = 1 ns
+
+            current_data = df_muons[(time - (2e7) < df_muons['detection_time']) & (df_muons['detection_time'] <= time)]
+            x_current = current_data['detected_x_position'].values
+            y_current = current_data['detected_y_position'].values
+            z_current = current_data['detected_z_position'].values
+            # Assuming 'width' and 'length' are defined elsewhere in your code
+            conditionx = x_current <= width
+            conditiony = y_current <= length
+            conditionx1 = x_current >= 0
+            conditionx2 = y_current >= 0
+
+            # Combine the conditions using logical AND to ensure we only keep entries that satisfy both
+            combined_condition = conditionx & conditiony & conditionx1 & conditionx2
+
+            # Apply the combined condition to all arrays
+            x_filtered = x_current[combined_condition]
+            y_filtered = y_current[combined_condition]
+            z_filtered = z_current[combined_condition] # Now applying filtering to z_current as well
+
+            # Now, all filtered arrays will have the same dimension
+            x_accumulated.extend(x_filtered)
+            y_accumulated.extend(y_filtered)
+            z_accumulated.extend(z_filtered)
+            scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
+            
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            ax.set_xlim(-max(rpc.dimensions[0] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[0] for rpc in self.rpc_list)*1.1)
+            ax.set_ylim(-max(rpc.dimensions[1] for rpc in self.rpc_list)*0.1, max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1)
+            ax.set_zlim(0, max(rpc.height for rpc in self.rpc_list) + 2)
+            
+            
+            muon_detection_times = df_muons.groupby('muon_index')['detection_time'].agg(['min', 'max']).to_dict('index')
+            relevant_muons = [index for index, times in muon_detection_times.items() if times['max'] <= time and times['min']> time-(2e7)]
+            if relevant_muons:
+                # Filter dataframe for relevant muons.
+                current_data_line = df_muons[df_muons['muon_index'].isin(relevant_muons) & ((df_muons['Outcome'] == 'Y') | (df_muons['Outcome'] == 'N'))]
+                current_data_line = current_data_line.dropna(subset=['detected_x_position', 'detected_y_position', 'detected_z_position'])
+                
+                # Group by muon_index and draw lines for each group.
+                grouped = current_data_line.groupby('muon_index')
+                for name, group in grouped:
+                    # Only plot lines for muons that are relevant for the current frame.
+                    if name in relevant_muons:
+                        group = group.sort_values(by='detection_time')
+                        x = group['detected_x_position'].values
+                        y = group['detected_y_position'].values
+                        z = group['detected_z_position'].values
+                        ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = 'red')
+
+
+            if  frame == number_of_frames-1:
+                x_accumulated.clear()
+                y_accumulated.clear()
+                z_accumulated.clear()
+                    # Also clear the scatter plot
+                scat.remove()
+                # Recreate the scatter plot
+                scat = ax.scatter([], [], [])
+                return scat,
+            else:
+                return scat,
+    
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
+
+        plt.show()
+
+    def play_video_norm_old(self,muons,df_selected_muons):
 
         #Making a copy of muons so that the original data is not deleted...
         muons_c = muons.copy()
