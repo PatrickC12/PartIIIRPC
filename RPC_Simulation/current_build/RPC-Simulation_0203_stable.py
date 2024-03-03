@@ -115,7 +115,7 @@ class RPC:
         
 class muon:
 
-    def __init__(self,position,velocity,gamma,energy):
+    def __init__(self,position,velocity,gamma,energy,theta):
 
         #[x,y,z] coordinates of muon
         self.position = np.array(position)
@@ -143,6 +143,10 @@ class muon:
 
         self.gamma = gamma
         self.energy = energy
+
+        #Muon velocity, zenith angle.
+
+        self.theta = theta
 
     def update_position(self,time_step):
 
@@ -806,6 +810,7 @@ class RPCSimulatorApp:
         self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/ns: ")
         self.muon_flux_label.pack(pady=5)
         self.muon_flux_var = tk.DoubleVar()
+        self.muon_flux_var.set(0.01)
         self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
         self.muon_flux_entry.pack(pady=5)
 
@@ -813,6 +818,7 @@ class RPCSimulatorApp:
         self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (ns):")
         self.sim_time_label.pack(pady=5)
         self.sim_time_var = tk.DoubleVar()
+        self.sim_time_var.set(100)
         self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
         self.sim_time_entry.pack(pady=5)
 
@@ -854,7 +860,7 @@ class RPCSimulatorApp:
         extension = np.multiply(velocity, time_of_travel)
         position = [np.random.uniform(-extension[0],max(rpc.dimensions[0] for rpc in self.rpc_list)-extension[0]),np.random.uniform(-extension[1],max(rpc.dimensions[1] for rpc in self.rpc_list)-extension[1]) , max(rpc.height for rpc in self.rpc_list)]
         
-        return muon(position= position, velocity= velocity, gamma = gamma, energy=E)
+        return muon(position= position, velocity= velocity, gamma = gamma, energy=E, theta= theta)
 
     def start_simulation_combinednano(self):
 
@@ -897,10 +903,20 @@ class RPCSimulatorApp:
         
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
 
-        #Sample from zenith angle distribution discretely.
-        theta_vals = np.linspace(0,np.pi/2,100,endpoint=False)
-        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_vals]
-        norm_probs = np.multiply(1/(np.sum(probs)),probs)
+        def generate_theta():
+            #GENERATE MUON ZENITH ANGLE FROM MC Accept/Reject algorithm.
+            def pdf(x):
+                return 4/np.pi * np.cos(x)**2
+            
+            while True:
+                theta = np.random.uniform(0,np.pi/2)
+                p = np.random.uniform(0,pdf(0))
+                
+                if p < pdf(theta):
+                    theta_generated = theta
+                    break
+                    
+            return theta_generated
 
         #Sample energy from distribution.
 
@@ -927,7 +943,7 @@ class RPCSimulatorApp:
             if sim_time > total_sim_time:
                 break
                 
-            theta = np.random.choice(theta_vals, p=norm_probs)
+            theta = generate_theta()
             energy = np.random.choice(energy_vals, p=norm_energy_probs)
             muon_instance = self.generate_muon_at_time(theta=theta,h=h,energy = energy)
             
@@ -1161,6 +1177,9 @@ class RPCSimulatorApp:
         self.plot_energy_distribution_button = ttk.Button(muon_distributions_window,text="Plot muon energy distribution", command=lambda: self.plot_muon_energy_distribution(df_selected_muons,muons))
         self.plot_energy_distribution_button.grid(row=0,column=0,pady=5,padx=20)
 
+        self.plot_zenith_distribution_button = ttk.Button(muon_distributions_window,text="Plot muon zenith angle distribution", command=lambda: self.plot_zenith_angle_distribution(df_selected_muons,muons))
+        self.plot_zenith_distribution_button.grid(row=1,column=0,pady=5,padx=20)
+
     def plot_muon_energy_distribution(self,df_selected_muons,muons):
 
         energies = [x.energy for x in muons if x.energy<50] #energies in GeV
@@ -1202,19 +1221,56 @@ class RPCSimulatorApp:
             midpoint_freq.append(freq)
 
         #Plot distribution from literature.
-        energies = np.linspace(0,50,1000)
         plt.plot(bin_midpoints,midpoint_freq,c='red',label='Generating distribution')
 
         plt.xlabel("Energy/GeV")
         plt.ylabel("Frequency")
-
+        plt.legend()
         plt.xlim(left=0)
         plt.title("Muon energy distribution")
         plt.show()
 
     def plot_zenith_angle_distribution(self,df_selected_muons,muons):
-        pass
-    
+        
+        generated_theta_vals = [x.theta for x in muons]
+        num_points = len(generated_theta_vals)
+
+        theta_vals = np.linspace(0,np.pi/2,100000,endpoint=False)
+        probs = [4/(np.pi) * (np.cos(x))**2 for x in theta_vals]
+        norm_probs = np.multiply(1/(np.sum(probs)),probs)
+
+        cdf = np.cumsum(norm_probs)
+        cdf_spacing = np.pi/2 / 1e5
+
+        plt.figure()
+
+        #Plot histogram of data.
+        num_bins = 100  # Adjust the number of bins as needed
+        counts, bin_edges, _= plt.hist(generated_theta_vals, bins=num_bins, alpha=0.7, label='Simulated muon distribution')
+        
+        bin_midpoints = []
+        midpoint_freq = []
+
+        bin_midpoints = [(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)]
+
+        for j in range(len(bin_edges)-1):
+            start_bin_index = int(np.floor(bin_edges[j]/ cdf_spacing))
+            end_bin_index = int(np.floor(bin_edges[j+1]/ cdf_spacing))
+            cum_prob = cdf[end_bin_index]-cdf[start_bin_index]
+            freq = cum_prob * num_points
+            midpoint_freq.append(freq)
+
+        #Plot distribution from literature.
+        plt.plot(bin_midpoints,midpoint_freq,c='red',label='Generating distribution')
+
+        plt.xlabel("Zenith Angle/ radians")
+        plt.ylabel("Frequency")
+
+        plt.legend()
+        plt.xlim(left=0)
+        plt.title("Muon zenith angle distribution")
+        plt.show()
+
     def save_data_again(self, muons):
         filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
         if filepath:
