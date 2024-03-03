@@ -838,7 +838,7 @@ class RPCSimulatorApp:
         self.use_darkcount_check.pack(pady=5)
         
         # Start simulation button combined
-        self.start_sim_button = ttk.Button(simulation_window, text="Start Ultimate Simulation", command=self.start_simulation_combinednano)
+        self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_combinednano)
         self.start_sim_button.pack(pady=5)
     
     def generate_muon_at_time(self,theta,h,energy):
@@ -964,7 +964,7 @@ class RPCSimulatorApp:
                     "detected_z_position": x[2],
                     "detection_time": x[3],
                     "Outcome":x[4],
-                    "Energy/ GeV":muon_instance.energy
+                    "Energy/GeV":muon_instance.energy,
 
                         })
                 
@@ -1001,6 +1001,7 @@ class RPCSimulatorApp:
         self.muon_flux_label = ttk.Label(simulation_window, text="Flux of muons /cm\u00b2/s: ")
         self.muon_flux_label.pack(pady=5)
         self.muon_flux_var = tk.DoubleVar()
+        self.muon_flux_var.set(0.017) #Ground level muon flux cm^2/s
         self.muon_flux_entry = ttk.Entry(simulation_window, textvariable=self.muon_flux_var)
         self.muon_flux_entry.pack(pady=5)
 
@@ -1008,11 +1009,12 @@ class RPCSimulatorApp:
         self.sim_time_label = ttk.Label(simulation_window, text="Simulation time (s):")
         self.sim_time_label.pack(pady=5)
         self.sim_time_var = tk.DoubleVar()
+        self.sim_time_var.set(100)
         self.sim_time_entry = ttk.Entry(simulation_window, textvariable=self.sim_time_var)
         self.sim_time_entry.pack(pady=5)
 
         #check if you need to simulate Path
-        self.use_paths_var = tk.BooleanVar(value=True)
+        self.use_paths_var = tk.BooleanVar(value=False)
         self.use_paths_check = ttk.Checkbutton(simulation_window, text="Use paths", variable=self.use_paths_var)
         self.use_paths_check.pack(pady=5)
 
@@ -1029,32 +1031,63 @@ class RPCSimulatorApp:
         # Start simulation button
         self.start_sim_button = ttk.Button(simulation_window, text="Start Simulation", command=self.start_simulation_normscale)
         self.start_sim_button.pack(pady=5)
-
-    def toggle_strips(self):
-            togglestrip = self.use_strips_var.get()
-            pass
-                
+               
     def start_simulation_normscale(self):
 
-        #Simulation time in seconds.
-        sim_time = self.sim_time_var.get()
-
-        #Muon flux, muon_flux_var is measured in /cm^2/s
-        muons_flux = self.muon_flux_var.get()
-        #Now calculate the expected muon rate given the dimensions of the problem.
-        area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025
-        #Now calculate the average rate of muon arrival (/sec) given the problem specifics.    
-        rate = muons_flux*area_m2*(1e4)
-
+        sim_time = self.sim_time_var.get() #Simulation time in seconds
         detected_muons = []
         muons = []
-
         muon_index = 0
+        running_time = 0 #Start counting time
 
-        #Start counting time
-        running_time = 0
+        def energy_dist(E):
+            #E In units of GeV
+            #Parameterise the distribution.
+
+            E_0 = 4.29
+            eps = 854
+            n = 3.01
+
+            #Energy dist from paper.
+            p = ((E_0+E)**(-n))* ((1+ E / eps)**(-1))
+        
+            return p
+
+        energy_vals = np.linspace(muon_mass+0.01,300,10000) #sampling 0.01 above muon_mass to avoid infinite time between rpcs.
+        energy_probs = [energy_dist(x) for x in energy_vals]
+        norm_energy_probs = np.multiply(1/(np.sum(energy_probs)),energy_probs)
+
+        muons_flux = self.muon_flux_var.get() #Muon flux, muon_flux_var is measured in /cm^2/s
+        area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025  
+        rate = muons_flux*area_m2*(1e4) #Rate /s
+
+        def generate_theta():
+            #GENERATE MUON ZENITH ANGLE FROM MC Accept/Reject algorithm.
+            def pdf(x):
+                return 4/np.pi * np.cos(x)**2
+            
+            while True:
+                theta = np.random.uniform(0,np.pi/2)
+                p = np.random.uniform(0,pdf(0))
+                
+                if p < pdf(theta):
+                    theta_generated = theta
+                    break
+                    
+            return theta_generated
 
         traj_time_step = min(rpc.dimensions[2] for rpc in self.rpc_list) / (0.299792458)
+
+        #Calculate necessary parameters outside of while loop.
+        max_z = max(rpc.height for rpc in self.rpc_list)
+        min_z = min(rpc.height for rpc in self.rpc_list)
+        h = max_z - min_z
+
+        def sort_func(x):
+            return x.height
+        
+        self.rpc_list.sort(key=sort_func,reverse=True)
+        sorted_rpc_list = self.rpc_list
 
         while running_time < sim_time:
 
@@ -1063,32 +1096,23 @@ class RPCSimulatorApp:
             #Due to the exponential nature of this first passage time distribution, it makes it difficult to sample discretely from it.
             #Have to use inverse transform sampling from the first passage time distribution instead.
 
-            u = np.random.uniform()
-            #Luckily np.random.uniform() excludes 1, as this produces an infinite result from inverse transform sampling...
+            u = np.random.uniform() #Luckily np.random.uniform() excludes 1, as this produces an infinite result from inverse transform sampling...
+            muon_time = -1 / rate *np.log(1-u)  #muon_time here is the time between when the last muon was produced and the next muon is generated.
+            running_time+= muon_time #running_time (in seconds) now updated to time when new muon is generated
 
-            #muon_time here is the time between when the last muon was produced and the next muon is generated.
-            muon_time = -1 / rate *np.log(1-u)
-
-            #running_time (in seconds) now updated to time when new muon is generated
-            running_time+= muon_time
-
-            #it is possible for running_time to exceed sim_time in the while loop now, just including this break to avoid this.
-
-            if running_time >= sim_time:
+            if running_time >= sim_time: #it is possible for running_time to exceed sim_time in the while loop now, just including this break to avoid this.
                 break
-
-            muon_instance = self.generate_muon_at_time() 
+            
+            theta = generate_theta()
+            energy = np.random.choice(energy_vals, p=norm_energy_probs)
+            muon_instance = self.generate_muon_at_time(theta=theta,h=h,energy = energy) 
 
             if self.use_paths_var.get() == True:   
-
                 muon_instance.simulate_path(self.rpc_list, initial_time=(running_time*1e9), time_step=traj_time_step) 
-
             if self.use_strips_var.get() == True:
-
                 muon_instance.stripped_check_hit(self.rpc_list)
             else:
-
-                muon_instance.check_hit(self.rpc_list, initial_time=(running_time*1e9))
+                muon_instance.check_hit(sorted_rpc_list, initial_time=(running_time*1e9))
 
             for x in muon_instance.detected_5vector:
                 detected_muons.append({
@@ -1098,18 +1122,29 @@ class RPCSimulatorApp:
                 "detected_y_position":x[1],
                 "detected_z_position": x[2],
                 "detection_time": x[3],
-                "Outcome":x[4]
-
+                "Outcome":x[4],
+                "Energy/GeV": muon_instance.energy,
                     })
             muon_index += 1
             muons.append(muon_instance)
     
         df_detected_muons = pd.DataFrame(detected_muons)
     
-        if self.use_darkcount_var.get() ==True:
-            df_dark = RPC.generate_dark(sim_time)
-            df_detected_muons = pd.concat([df_detected_muons, df_dark])
-    
+        if self.use_darkcount_var.get() == True:
+            if self.use_strips_var.get() == False:
+                for rpc in self.rpc_list:  
+                    dark = pd.DataFrame(RPC.generate_dark(rpc, sim_time*(1e9)))
+                    print(f"Dark counts generated: {len(dark)}")
+                    detected_dark_muons  = pd.concat([dark, detected_dark_muons], ignore_index=True)
+            else:
+                for rpc in self.rpc_list:  
+                    dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, sim_time*(1e9)))
+                    detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
+                
+        df_detected_muons = pd.DataFrame(detected_muons)
+        if self.use_darkcount_var.get() == True:
+            df_detected_muons = pd.concat([detected_dark_muons, df_detected_muons], ignore_index=True)
+            
         self.simulation_finished_dialog(df_detected_muons,muons)
 
 ###################################################################################################################
