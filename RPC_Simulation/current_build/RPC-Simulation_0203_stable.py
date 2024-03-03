@@ -1213,7 +1213,8 @@ class RPCSimulatorApp:
         plt.show()
 
     def plot_zenith_angle_distribution(self,df_selected_muons,muons):
-        continue
+        pass
+    
     def save_data_again(self, muons):
         filepath = filedialog.asksaveasfilename(defaultextension="csv", filetypes=[("CSV Files", "*.csv")])
         if filepath:
