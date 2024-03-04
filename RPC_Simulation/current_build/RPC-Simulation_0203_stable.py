@@ -1505,7 +1505,7 @@ class RPCSimulatorApp:
 
         # Initialize empty arrays to store accumulated positions
         x_accumulated, y_accumulated, z_accumulated = [], [], []
-        # dark_x_accumulated, dark_y_accumulated, dark_z_accumulated = [], [], []
+        dark_x_accumulated, dark_y_accumulated, dark_z_accumulated = [], [], []
         
         for rpc in self.rpc_list:
             z = rpc.height
@@ -1525,7 +1525,11 @@ class RPCSimulatorApp:
 
         number_of_frames = int(sim_time*50) #1 Frame is 20ms
 
-        def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated, df_muons = df_muons):
+        def update(frame, x_accumulated = x_accumulated, y_accumulated = y_accumulated,  z_accumulated = z_accumulated, 
+                   df_muons = df_muons, 
+                   dark_x_accumulated = dark_x_accumulated, 
+                   dark_y_accumulated = dark_y_accumulated, 
+                   dark_z_accumulated = dark_z_accumulated):
                 
             #If you would like to keep the trajectory plotted, then just remove ax.cla().
             ax.cla()
@@ -1547,6 +1551,7 @@ class RPCSimulatorApp:
                 ax.add_collection3d(poly3d)
 
             scat = ax.scatter([],[],[])
+            scatdark = ax.scatter([],[],[], c='black', marker='x')
             ax.annotate(f'Simulation time/s = {frame*(20e-3):.2f}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
             current_data = df_muons[(time - (2e7) < df_muons['detection_time']) & (df_muons['detection_time'] <= time)]
@@ -1555,9 +1560,9 @@ class RPCSimulatorApp:
             x_current = muon_data['detected_x_position'].values
             y_current = muon_data['detected_y_position'].values
             z_current = muon_data['detected_z_position'].values
-            # x_dark = dark_count_data['detected_x_position'].values
-            # y_dark = dark_count_data['detected_y_position'].values
-            # z_dark = dark_count_data['detected_z_position'].values
+            x_dark = dark_count_data['detected_x_position'].values
+            y_dark = dark_count_data['detected_y_position'].values
+            z_dark = dark_count_data['detected_z_position'].values
             # Assuming 'width' and 'length' are defined elsewhere in your code
             conditionx = x_current <= width
             conditiony = y_current <= length
@@ -1576,9 +1581,9 @@ class RPCSimulatorApp:
             x_accumulated.extend(x_filtered)
             y_accumulated.extend(y_filtered)
             z_accumulated.extend(z_filtered)
-            # dark_x_accumulated.extend(x_dark)
-            # dark_y_accumulated.extend(y_dark)
-            # dark_z_accumulated.extend(z_dark)
+            dark_x_accumulated.extend(x_dark)
+            dark_y_accumulated.extend(y_dark)
+            dark_z_accumulated.extend(z_dark)
             
             
             
@@ -1589,15 +1594,16 @@ class RPCSimulatorApp:
             if len(z_accumulated) > 40:
                 z_accumulated = z_accumulated[-40:]
                 
-            # if len(dark_x_accumulated) > 40:
-            #     dark_x_accumulated = dark_x_accumulated[-40:]
-            # if len(dark_y_accumulated) > 40:
-            #     dark_y_accumulated = dark_y_accumulated[-40:]
-            # if len(dark_z_accumulated) > 40:
-            #     dark_z_accumulated = dark_z_accumulated[-40:]
+            if len(dark_x_accumulated) > 40:
+                dark_x_accumulated = dark_x_accumulated[-40:]
+            if len(dark_y_accumulated) > 40:
+                dark_y_accumulated = dark_y_accumulated[-40:]
+            if len(dark_z_accumulated) > 40:
+                dark_z_accumulated = dark_z_accumulated[-40:]
 
 
             scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
+            scatdark._offsets3d = (dark_x_accumulated, dark_y_accumulated, dark_z_accumulated)
             
             # if not dark_count_data.empty:
             #     dark_x = dark_count_data['detected_x_position'].values
@@ -1646,7 +1652,7 @@ class RPCSimulatorApp:
                         ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = c)
 
 
-            return ax,
+            return ax
     
         # Create the animation
         ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
