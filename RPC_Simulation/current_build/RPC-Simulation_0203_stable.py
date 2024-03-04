@@ -1416,6 +1416,12 @@ class RPCSimulatorApp:
                 x_accumulated.extend(x_current)
                 y_accumulated.extend(y_current)
                 z_accumulated.extend(z_current)
+                if len(x_accumulated) > 40:
+                    x_accumulated = x_accumulated[-40:]
+                if len(y_accumulated) > 40:
+                    y_accumulated = y_accumulated[-40:]
+                if len(z_accumulated) > 40:
+                    z_accumulated = z_accumulated[-40:]
                 
                 # Update scatter plot data
                 scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
@@ -1592,6 +1598,15 @@ class RPCSimulatorApp:
             x_accumulated.extend(x_filtered)
             y_accumulated.extend(y_filtered)
             z_accumulated.extend(z_filtered)
+            
+            if len(x_accumulated) > 40:
+                x_accumulated = x_accumulated[-40:]
+            if len(y_accumulated) > 40:
+                y_accumulated = y_accumulated[-40:]
+            if len(z_accumulated) > 40:
+                z_accumulated = z_accumulated[-40:]
+
+
             scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
             
             ax.set_xlabel('X')
