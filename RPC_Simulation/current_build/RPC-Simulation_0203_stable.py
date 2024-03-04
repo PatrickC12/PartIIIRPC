@@ -991,7 +991,6 @@ class RPCSimulatorApp:
 ###################################################################################################################
 # Second Scale Simulation Section
 ################################################################################################################### 
-        
     def run_simulation_window_norm(self):
 
         simulation_window = tk.Toplevel(self.master)
@@ -1493,7 +1492,15 @@ class RPCSimulatorApp:
                             x = group['detected_x_position'].values
                             y = group['detected_y_position'].values
                             z = group['detected_z_position'].values
-                            ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = 'red')
+
+                            if len(group)==len(self.rpc_list):
+                                c = 'lime'
+                            elif len(group) == 1:
+                                c = 'red'
+                            else:
+                                c= 'gold'
+
+                            ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = c)
 
             if  frame == number_of_frames-1:
                 x_accumulated.clear()
@@ -1508,7 +1515,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=100)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
 
         plt.show()
 
@@ -1516,7 +1523,6 @@ class RPCSimulatorApp:
         # Create a figure and a 3D axis
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-
         df_muons = df_selected_muons
 
         # Initialize empty arrays to store accumulated positions
@@ -1615,7 +1621,15 @@ class RPCSimulatorApp:
                         x = group['detected_x_position'].values
                         y = group['detected_y_position'].values
                         z = group['detected_z_position'].values
-                        ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = 'red')
+
+                        if len(group)==len(self.rpc_list):
+                            c = 'lime'
+                        elif len(group) == 1:
+                            c = 'red'
+                        else:
+                            c= 'gold'
+                        
+                        ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = c)
 
 
             if  frame == number_of_frames-1:
@@ -1631,7 +1645,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=1009)
 
         plt.show()
 
