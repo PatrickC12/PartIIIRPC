@@ -1090,7 +1090,7 @@ class RPCSimulatorApp:
                 "detected_x_position":x[0],
                 "detected_y_position":x[1],
                 "detected_z_position": x[2],
-                "detection_time": x[3],
+                "detection_time": x[3] * 10 ** -9,
                 "Outcome":x[4],
                 "Energy/GeV": muon_instance.energy,
                     })
@@ -1586,6 +1586,7 @@ class RPCSimulatorApp:
                 dark_x = dark_count_data['detected_x_position'].values
                 dark_y = dark_count_data['detected_y_position'].values
                 dark_z = dark_count_data['detected_z_position'].values
+                dark_time = dark_count_data['detection_time'].values
                 ax.scatter(dark_x, dark_y, dark_z, c='black', marker='x', label='Dark Count')  # Plot dark counts distinctly
 
                 # ax.scatter(dark_x, dark_y, dark_z, c='black', marker='x', label='Dark Count')  # Plot dark counts distinctly
@@ -1604,6 +1605,7 @@ class RPCSimulatorApp:
                 # Filter dataframe for relevant muons.
                 current_data_line = df_muons[df_muons['muon_index'].isin(relevant_muons) & ((df_muons['Outcome'] == 'Y') | (df_muons['Outcome'] == 'N'))]
                 current_data_line = current_data_line.dropna(subset=['detected_x_position', 'detected_y_position', 'detected_z_position'])
+                
                 
                 # Group by muon_index and draw lines for each group.
                 grouped = current_data_line.groupby('muon_index')
