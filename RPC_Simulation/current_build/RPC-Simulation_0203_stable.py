@@ -1570,9 +1570,6 @@ class RPCSimulatorApp:
             scat = ax.scatter([],[],[])
             ax.annotate(f'Simulation time/s = {frame*(20e-3):.2f}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
-            # Filter data for the cumulative frame.
-            # 1 frame = 1 ns
-
             current_data = df_muons[(time - (2e7) < df_muons['detection_time']) & (df_muons['detection_time'] <= time)]
             x_current = current_data['detected_x_position'].values
             y_current = current_data['detected_y_position'].values
@@ -1645,7 +1642,7 @@ class RPCSimulatorApp:
                 return scat,
     
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=1009)
+        ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
 
         plt.show()
 
