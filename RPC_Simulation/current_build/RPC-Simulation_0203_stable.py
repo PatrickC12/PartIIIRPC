@@ -58,36 +58,11 @@ class RPC:
     def coincidence(self):
     
         pass
-
-    def generate_dark(self, runtime):
-
-        darkcountdata = []
-
-        total_dark_counts = np.random.poisson(self.darkcount * runtime)
-        
-        for _ in range(total_dark_counts):
-            x_position = np.random.uniform(0, self.dimensions[0])
-            y_position = np.random.uniform(0, self.dimensions[1])
-            
-            detection_time = np.random.uniform(0, runtime)
-            
-            # Append the dark count info to the darkcount list
-            darkcountdata.append({
-                "velocity": 'Dark',
-                "muon_index": 'Dark',
-                "detected_x_position": x_position,
-                "detected_y_position": y_position,
-                "detected_z_position": self.height,
-                "detection_time": detection_time,
-                "Outcome": 'dark'
-            })
-            
-        return darkcountdata
     
     def generate_dark_stripped(self, runtime):
         darkcountdatastripped = []
 
-        total_dark_counts = np.random.poisson(self.darkcount * runtime)
+        total_dark_counts = np.random.poisson(self.darkcount * runtime * self.strips[0] * self.strips[1])
         
         for _ in range(total_dark_counts):
             x_position = np.random.uniform(0, self.dimensions[0])
@@ -970,17 +945,12 @@ class RPCSimulatorApp:
                 
             muon_index += 1
             muons.append(muon_instance)
+
                 
         if self.use_darkcount_var.get() == True:
-            if self.use_strips_var.get() == False:
-                for rpc in self.rpc_list:  
-                    dark = pd.DataFrame(RPC.generate_dark(rpc, total_sim_time))
-                    print(f"Dark counts generated: {len(dark)}")
-                    detected_dark_muons  = pd.concat([dark, detected_dark_muons], ignore_index=True)
-            else:
-                for rpc in self.rpc_list:  
-                    dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, total_sim_time))
-                    detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
+            for rpc in self.rpc_list:  
+                dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, total_sim_time * 1e-9))
+                detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
                 
         df_detected_muons = pd.DataFrame(detected_muons)
         if self.use_darkcount_var.get() == True:
@@ -1109,7 +1079,7 @@ class RPCSimulatorApp:
             if self.use_paths_var.get() == True:   
                 muon_instance.simulate_path(self.rpc_list, initial_time=(running_time*1e9), time_step=traj_time_step) 
             if self.use_strips_var.get() == True:
-                muon_instance.stripped_check_hit(self.rpc_list)
+                muon_instance.stripped_check_hit(self.rpc_list, initial_time=sim_time)
             else:
                 muon_instance.check_hit(sorted_rpc_list, initial_time=(running_time*1e9))
 
@@ -1128,20 +1098,22 @@ class RPCSimulatorApp:
             muons.append(muon_instance)
     
         df_detected_muons = pd.DataFrame(detected_muons)
+        
+        detected_muons = []
+        detected_dark_muons = pd.DataFrame({            
+            "velocity": [np.nan],
+            "muon_index": [np.nan],
+            "detected_x_position": [np.nan],
+            "detected_y_position": [np.nan],
+            "detected_z_position": [np.nan],
+            "detection_time": [np.nan],
+            "Outcome": [np.nan]
+            })
     
         if self.use_darkcount_var.get() == True:
-            if self.use_strips_var.get() == False:
-                for rpc in self.rpc_list:  
-                    dark = pd.DataFrame(RPC.generate_dark(rpc, sim_time*(1e9)))
-                    print(f"Dark counts generated: {len(dark)}")
-                    detected_dark_muons  = pd.concat([dark, detected_dark_muons], ignore_index=True)
-            else:
-                for rpc in self.rpc_list:  
-                    dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, sim_time*(1e9)))
-                    detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
-                
-        df_detected_muons = pd.DataFrame(detected_muons)
-        if self.use_darkcount_var.get() == True:
+            for rpc in self.rpc_list:  
+                dark = pd.DataFrame(RPC.generate_dark_stripped(rpc, sim_time))
+                detected_dark_muons = pd.concat([dark, detected_dark_muons], ignore_index=True)            
             df_detected_muons = pd.concat([detected_dark_muons, df_detected_muons], ignore_index=True)
             
         self.simulation_finished_dialog(df_detected_muons,muons)
@@ -1577,9 +1549,11 @@ class RPCSimulatorApp:
             ax.annotate(f'Simulation time/s = {frame*(20e-3):.2f}', xy=(0.05, 0.95), xycoords='axes fraction', color='black')
 
             current_data = df_muons[(time - (2e7) < df_muons['detection_time']) & (df_muons['detection_time'] <= time)]
-            x_current = current_data['detected_x_position'].values
-            y_current = current_data['detected_y_position'].values
-            z_current = current_data['detected_z_position'].values
+            muon_data = current_data[current_data['Outcome'] != 'dark']  # Exclude dark counts for muon plotting
+            dark_count_data = current_data[current_data['Outcome'] == 'dark']  # Filter for dark counts
+            x_current = muon_data['detected_x_position'].values
+            y_current = muon_data['detected_y_position'].values
+            z_current = muon_data['detected_z_position'].values
             # Assuming 'width' and 'length' are defined elsewhere in your code
             conditionx = x_current <= width
             conditiony = y_current <= length
@@ -1608,6 +1582,13 @@ class RPCSimulatorApp:
 
 
             scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
+            if not dark_count_data.empty:
+                dark_x = dark_count_data['detected_x_position'].values
+                dark_y = dark_count_data['detected_y_position'].values
+                dark_z = dark_count_data['detected_z_position'].values
+                ax.scatter(dark_x, dark_y, dark_z, c='black', marker='x', label='Dark Count')  # Plot dark counts distinctly
+
+                # ax.scatter(dark_x, dark_y, dark_z, c='black', marker='x', label='Dark Count')  # Plot dark counts distinctly
             
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
@@ -1644,17 +1625,7 @@ class RPCSimulatorApp:
                         ax.plot(x, y, z, marker='o', markersize=5, linestyle='-', linewidth=2, label=f'Muon Index {name}', color = c)
 
 
-            if  frame == number_of_frames-1:
-                x_accumulated.clear()
-                y_accumulated.clear()
-                z_accumulated.clear()
-                    # Also clear the scatter plot
-                scat.remove()
-                # Recreate the scatter plot
-                scat = ax.scatter([], [], [])
-                return scat,
-            else:
-                return scat,
+            return ax,
     
         # Create the animation
         ani = FuncAnimation(fig, update, frames=number_of_frames, interval=20)
