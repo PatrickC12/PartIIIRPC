@@ -112,8 +112,8 @@ plt.plot(times_without_books,residuals_wo_books,label='No weight applied to gas-
 plt.xlabel('Time/seconds')
 plt.ylabel('Voltage residual from steady value/ mV')
 
-plt.annotate(f'Mean voltage w/ pressure = {mean_voltage_w_books:.2f}/mV', xy=(0.75, 0.80), xycoords='axes fraction', color='black')
-plt.annotate(f'Mean voltage w/o pressure = {mean_voltage_wo_books:.2f}/mV', xy=(0.75,0.75), xycoords='axes fraction', color='black')
+plt.annotate(f'Stable voltage w/ pressure = {mean_voltage_w_books:.2f} mV (from IV Curve)', xy=(0.60, 0.90), xycoords='axes fraction', color='black')
+plt.annotate(f'Stable voltage w/o pressure = {mean_voltage_wo_books:.2f} mV (from IV Curve)', xy=(0.60,0.85), xycoords='axes fraction', color='black')
 plt.title('Voltage fluctuations from mean over period of ~30 minutes')
 
 
