@@ -117,30 +117,37 @@ class CSVPlotterApp:
         if not selected_files:
             messagebox.showwarning("No Selection", "No files selected for plotting.")
             return
-        color = iter(cm.rainbow(np.linspace(0, 1, 16)))
 
         plt.figure(figsize=(20, 16))
         manual_threshold = self.manual_threshold_var.get()
-        initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.initial_guess_c_var.get()]  # Corrected to use the proper variable for 'c'
+        initial_guesses = [self.initial_guess_a_var.get(), self.initial_guess_b_var.get(), self.initial_guess_c_var.get()]
 
-        for file in selected_files:
+        color_map = plt.cm.get_cmap('rainbow', len(selected_files))
+        for file, color_index in zip(selected_files, range(len(selected_files))):
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
             data = data[data['Current/uA'] > 0]
-                        
-            c = next(color)
 
-            sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file, c = c)
-            
+            #Debugging: check shape of data inputted into sns.lineplot
+            #print(data['Voltage/kV'].shape)
+            #print(data['Current/uA'].shape)
+
+            #print("File:", file)
+            #print("Data:", data)
+
+            colors = plt.cm.rainbow(np.linspace(0, 1, len(selected_files)))  # Generate a list of colors
+            color_index = selected_files.index(file)  # Get the index of the current file
+            color = colors[color_index]  # Select the color for the current file
+            sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file, color=color)
+
 
             if self.fit_lines_var.get():
-                if manual_threshold > 0:  # Use manual threshold if specified
+                if manual_threshold > 0:
                     threshold = manual_threshold
-                else:  # Otherwise, find the best threshold automatically
+                else:
                     threshold = self.find_best_threshold(data[['Voltage/kV', 'Current/uA']])
 
                 if threshold is not None:
-                    # Linear fit
                     linear_data = data[data['Voltage/kV'] <= threshold]
                     if len(linear_data) > 1:
                         linear_fit_params = np.polyfit(linear_data['Voltage/kV'], linear_data['Current/uA'], 1)
@@ -149,11 +156,9 @@ class CSVPlotterApp:
                         label_linear_fit = f'Linear Fit: $y = {linear_fit_params[0]:.2f}x + {linear_fit_params[1]:.2f}$'
                         plt.plot(linear_x_vals, linear_fit_func(linear_x_vals), linestyle="--", label=label_linear_fit)
 
-                    # Exponential fit with initial guesses
                     exp_data = data[data['Voltage/kV'] > threshold]
                     if len(exp_data) > 1:
                         try:
-                            # Use the corrected initial guesses here
                             exp_fit_params, _ = curve_fit(exp_func, exp_data['Voltage/kV'], exp_data['Current/uA'], p0=initial_guesses, maxfev=10000)
                             exp_x_vals = np.linspace(threshold, data['Voltage/kV'].max(), 100)
                             label_exp_fit = f'Exp Fit: $y = {exp_fit_params[0]:.2f} \cdot e^{{{exp_fit_params[1]:.2f}(x-{exp_fit_params[2]:.2f})}}$'
@@ -161,13 +166,9 @@ class CSVPlotterApp:
                         except RuntimeError as e:
                             messagebox.showwarning("Fit Error", f"Exponential fit failed for {file}: {e}")
 
-            # Placeholder for error bars functionality
             if self.error_bar_var.get():
-                # Adjusting error values: replace 0 with 0.01
                 errors = data.iloc[:, 2].replace(0, 0.01)
-                sns.scatterplot(x=data.iloc[:, 0], y=data.iloc[:, 1], label=file)
-                plt.errorbar(data.iloc[:, 0], data.iloc[:, 1], yerr=errors, fmt='o', capsize=5, label='_nolegend_')
-                pass
+                plt.errorbar(data['Voltage/kV'], data['Current/uA'], yerr=errors, fmt='o', capsize=5, label='_nolegend_')
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
