@@ -127,6 +127,7 @@ class CSVPlotterApp:
             data_path = os.path.join(folder_path, file)
             data = pd.read_csv(data_path)
             data = data[data['Current/uA'] > 0]
+            data = pd.DataFrame.to_numpy(data)
                         
             c = next(color)
 
