@@ -165,33 +165,52 @@ class muon:
                 #Break out of the loop, muon has decayed and can no longer be detected.
                 break
 
-    def stripped_check_hit(self, rpc_list, initial_time):
+    def stripped_check_hit(self, sorted_rpc_list, initial_time):
     
+        t_half = self.gamma*(2200) #in ns
+        rate = np.log(2)/t_half
+
         if len(self.times)==0:
             init_time = initial_time
         else:
             init_time = self.times[0]
 
-        for rpc in rpc_list:
-            self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
-            self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
+        times_to_rpcs = [0]
+        
+        for x,rpc in enumerate(sorted_rpc_list):
+            
             success = "Y" if np.random.rand() < rpc.efficiency else "N"
-            time_to_rpc = (rpc.height - max(rpc.height for rpc in rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
-            if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:
-                # Calculate position at the time of potential detection
-                x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
-                y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
-                # Adjust position to nearest strip point
-                x_strip = round(x_pos / self.x_spacing) * self.x_spacing
-                y_strip = round(y_pos / self.y_spacing) * self.y_spacing
-                self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
-            else:
-                x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
-                y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
-                x_strip = round(x_pos / self.x_spacing) * self.x_spacing
-                y_strip = round(y_pos / self.y_spacing) * self.y_spacing
+            time_to_rpc = (rpc.height - max(rpc.height for rpc in sorted_rpc_list)) / (self.velocity[2]*speed_of_light) if self.velocity[2] != 0 else float('inf')
+            times_to_rpcs.append(time_to_rpc)
+
+            if np.exp(-rate*(times_to_rpcs[x+1]-times_to_rpcs[x])) > np.random.rand():
                 
-                self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, 'out'])
+                if 0 < self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light < rpc.dimensions[0] and 0 < self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light < rpc.dimensions[1]:
+                    self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
+                    self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
+                                # Calculate position at the time of potential detection
+                    x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
+                    y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
+                    # Adjust position to nearest strip point
+                    x_strip = round(x_pos / self.x_spacing) * self.x_spacing
+                    y_strip = round(y_pos / self.y_spacing) * self.y_spacing
+                    self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
+                else:
+                    self.x_spacing = rpc.dimensions[0] / (rpc.strips[0] - 1)
+                    self.y_spacing = rpc.dimensions[1] / (rpc.strips[1] - 1)
+                                # Calculate position at the time of potential detection
+                    x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
+                    y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
+                    # Adjust position to nearest strip point
+                    x_strip = round(x_pos / self.x_spacing) * self.x_spacing
+                    y_strip = round(y_pos / self.y_spacing) * self.y_spacing
+                    
+                    self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, f'Missed RPC {x+1}'])
+            else:
+                ###Muon decays between previous RPC and current RPC.
+                self.detected_5vector.append([float('inf'),float('inf'),float('inf'),init_time + time_to_rpc,f"Muon decayed between RPCs {x} and {x+1}"])
+                #Break out of the loop, muon has decayed and can no longer be detected.
+                break
                     
     def simulate_path(self,rpc_list, initial_time,time_step):
         #Simulate path of muon, given time_step and initial_time in nanoseconds
@@ -931,7 +950,7 @@ class RPCSimulatorApp:
                 muon_instance.simulate_path(self.rpc_list, sim_time, traj_time_step)
             
             if self.use_strips_var.get() == True:
-                muon_instance.stripped_check_hit(self.rpc_list, initial_time = sim_time)
+                muon_instance.stripped_check_hit(sorted_rpc_list, initial_time = sim_time)
             else:
                 muon_instance.check_hit(sorted_rpc_list,initial_time = sim_time)
                  
@@ -1084,7 +1103,7 @@ class RPCSimulatorApp:
             if self.use_paths_var.get() == True:   
                 muon_instance.simulate_path(self.rpc_list, initial_time=(running_time*1e9), time_step=traj_time_step) 
             if self.use_strips_var.get() == True:
-                muon_instance.stripped_check_hit(self.rpc_list, initial_time=sim_time)
+                muon_instance.stripped_check_hit(self.rpc_list, initial_time=(running_time*1e9))
             else:
                 muon_instance.check_hit(sorted_rpc_list, initial_time=(running_time*1e9))
 
@@ -1592,19 +1611,19 @@ class RPCSimulatorApp:
             
             
             
-            if len(x_accumulated) > 40:
-                x_accumulated = x_accumulated[-40:]
-            if len(y_accumulated) > 40:
-                y_accumulated = y_accumulated[-40:]
-            if len(z_accumulated) > 40:
-                z_accumulated = z_accumulated[-40:]
+            if len(x_accumulated) > 2:
+                x_accumulated = x_accumulated[-2:]
+            if len(y_accumulated) > 2:
+                y_accumulated = y_accumulated[-2:]
+            if len(z_accumulated) > 2:
+                z_accumulated = z_accumulated[-2:]
                 
-            if len(dark_x_accumulated) > 40:
-                dark_x_accumulated = dark_x_accumulated[-40:]
-            if len(dark_y_accumulated) > 40:
-                dark_y_accumulated = dark_y_accumulated[-40:]
-            if len(dark_z_accumulated) > 40:
-                dark_z_accumulated = dark_z_accumulated[-40:]
+            if len(dark_x_accumulated) > 2:
+                dark_x_accumulated = dark_x_accumulated[-2:]
+            if len(dark_y_accumulated) > 2:
+                dark_y_accumulated = dark_y_accumulated[-2:]
+            if len(dark_z_accumulated) > 2:
+                dark_z_accumulated = dark_z_accumulated[-2:]
 
 
             scat._offsets3d = (x_accumulated, y_accumulated, z_accumulated)
