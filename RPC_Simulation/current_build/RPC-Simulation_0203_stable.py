@@ -186,6 +186,11 @@ class muon:
                 y_strip = round(y_pos / self.y_spacing) * self.y_spacing
                 self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, success])
             else:
+                x_pos = self.position[0] + self.velocity[0] * time_to_rpc*speed_of_light
+                y_pos = self.position[1] + self.velocity[1] * time_to_rpc*speed_of_light
+                x_strip = round(x_pos / self.x_spacing) * self.x_spacing
+                y_strip = round(y_pos / self.y_spacing) * self.y_spacing
+                
                 self.detected_5vector.append([x_strip, y_strip, rpc.height, init_time + time_to_rpc, 'out'])
                     
     def simulate_path(self,rpc_list, initial_time,time_step):
