@@ -33,9 +33,10 @@ for E_cut in np.linspace(100,600,num=50):
 
 fig = plt.figure()
 
-plt.scatter(E_cuts,mean_E)
+plt.plot(E_cuts,mean_E)
 
-plt.xlabel('E')
-plt.ylabel('E_Mean')
+plt.xlabel('E/GeV')
+plt.ylabel('E_Mean/GeV')
+plt.title('Mean energy vs cut-off energy of distribution')
 
 plt.show()
