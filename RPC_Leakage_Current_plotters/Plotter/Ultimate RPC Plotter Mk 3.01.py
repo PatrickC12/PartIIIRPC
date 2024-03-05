@@ -129,11 +129,11 @@ class CSVPlotterApp:
             data = data[data['Current/uA'] > 0]
 
             #Debugging: check shape of data inputted into sns.lineplot
-            print(data['Voltage/kV'].shape)
-            print(data['Current/uA'].shape)
+            #print(data['Voltage/kV'].shape)
+            #print(data['Current/uA'].shape)
 
-            print("File:", file)
-            print("Data:", data)
+            #print("File:", file)
+            #print("Data:", data)
 
             colors = plt.cm.rainbow(np.linspace(0, 1, len(selected_files)))  # Generate a list of colors
             color_index = selected_files.index(file)  # Get the index of the current file
