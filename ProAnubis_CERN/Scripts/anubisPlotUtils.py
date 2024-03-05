@@ -9,10 +9,12 @@ hep.style.use([hep.style.ATLAS])
 import sys
 from PIL import Image
 
+current_directory=  os.path.dirname(os.getcwd())
+
 def plotPhi(array, name, zrange = [0.01,200], unit='khz', time=60.):
     fig, ax = plt.subplots(1, figsize=(16, 8), dpi=100)
-    lab = hep.atlas.label(com=False,data=True, label="Internal")
-    lab[2].set_text("")
+    """ #lab = hep.atlas.label(com=False,data=True, label="Internal")
+    #lab[2].set_text("") """
     phichannels = [x-0.5 for x in range(65)]
     phiHist = ((np.array([array])/time).transpose(),np.array(phichannels),np.array([0,1]))
     thisHist = hep.hist2dplot(phiHist,norm=colors.LogNorm(zrange[0],zrange[1]))
@@ -22,13 +24,13 @@ def plotPhi(array, name, zrange = [0.01,200], unit='khz', time=60.):
     plt.title(name)
     fig.tight_layout()
     ax.get_yaxis().set_visible(False)
-    plt.savefig('/eos/user/m/mireveri/anubis/'+name.strip(" ")+".png")
-    return '/eos/user/m/mireveri/anubis/'+name.strip(" ")+".png"
+    plt.savefig(current_directory+"\Figures"+name.strip(" ")+".png")
+    return current_directory+"\Figures"+name.strip(" ")+".png"
 
 def plotEta(array, name, zrange = [0.01,200], unit='khz', time=60.):
     fig, ax = plt.subplots(1, figsize=(16, 8), dpi=100)
-    lab = hep.atlas.label(com=False,data=True, label="Internal")
-    lab[2].set_text("")
+    """ lab = hep.atlas.label(com=False,data=True, label="Internal")
+    lab[2].set_text("") """
     etachannels = [x-0.5 for x in range(33)]
     etaHist = (np.array([array])/time,np.array([0,1]),np.array(etachannels))
     thisHist = hep.hist2dplot(etaHist,norm=colors.LogNorm(zrange[0],zrange[1]))
@@ -39,8 +41,8 @@ def plotEta(array, name, zrange = [0.01,200], unit='khz', time=60.):
     plt.title(name)
     fig.tight_layout()
     ax.get_xaxis().set_visible(False)
-    plt.savefig('/eos/user/m/mireveri/anubis/'+name.strip(" ")+".png")
-    return '/eos/user/m/mireveri/anubis/'+name.strip(" ")+".png"
+    plt.savefig(current_directory+"Figures"+name.strip(" ")+".png")
+    return current_directory+"Figures"+name.strip(" ")+".png"
 
 def combinePlots(plots,imname):
     images = [Image.open(x) for x in plots]
