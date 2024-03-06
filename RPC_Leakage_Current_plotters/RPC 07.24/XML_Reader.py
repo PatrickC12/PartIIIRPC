@@ -33,6 +33,7 @@ if rowdata1 is not None:
 
         # Add the attributes to the DataFrame
         df_with_books = df_with_books.append({'No': no, 'time': time, 'Value': value, 'Unit': unit}, ignore_index=True)
+
 else:
     print("ROWDATA element not found in the XML.")
 
