@@ -10,7 +10,7 @@ current_directory = os.getcwd()
 
 
 #PARSE WITHBOOK DATA
-file_path_with_books = current_directory + "\\RPC_Leakage_Current_plotters\\RPC 07.24\\PartIIIRPC-10424 0703 Const Voltage_modified.xml"
+file_path_with_books = current_directory + "\\RPC_Leakage_Current_plotters\\RPC 07.24\\PartIIIRPCwithBooks_modified.xml"
 #parser = ET.XMLParser(encoding="unicode_escape")
 tree1 = ET.parse(file_path_with_books)
 root1 = tree1.getroot()
@@ -32,7 +32,7 @@ if rowdata1 is not None:
         unit = child.get('Unit')
 
         # Add the attributes to the DataFrame
-        df_with_books = pd.concat([df_with_books, {'No': no, 'time': time, 'Value': value, 'Unit': unit}], ignore_index=True)
+        df_with_books = df_with_books.append({'No': no, 'time': time, 'Value': value, 'Unit': unit}, ignore_index=True)
 
 else:
     print("ROWDATA element not found in the XML.")
@@ -62,7 +62,7 @@ if rowdata2 is not None:
         unit = child.get('Unit')
 
         # Add the attributes to the DataFrame
-        df_without_books = pd.concat([df_without_books, {'No': no, 'time': time, 'Value': value, 'Unit': unit}], ignore_index=True)
+        df_without_books = df_without_books.append({'No': no, 'time': time, 'Value': value, 'Unit': unit}, ignore_index=True)
 else:
     print("ROWDATA element not found in the XML.")
 
@@ -73,12 +73,12 @@ df_with_books = df_with_books[(df_with_books['Unit'] == 'mV') | (df_with_books['
 
 #Convert all volts to same units.
 voltage_rows1 = df_without_books[df_without_books['Unit']=='V']
-voltage_rows1['Value'] *= 1000
+voltage_rows1['Value'] *= 100 #The tenma software appears to divide by 100 instead of 1000 when converting mV to V.
 voltage_rows1['Unit'] = 'mV'
 df_without_books.update(voltage_rows1)
 
 voltage_rows2 = df_with_books[df_with_books['Unit']=='V']
-voltage_rows2['Value'] *= 1000
+voltage_rows2['Value'] *= 100
 voltage_rows2['Unit'] = 'mV'
 df_with_books.update(voltage_rows2)
 
@@ -107,14 +107,14 @@ residuals_wo_books = [x-mean_voltage_wo_books for x in voltages_without_books]
 
 plt.figure()
 
-plt.plot(times_with_books,residuals_w_books,label='Weight evenly distributed above gas-gap, Voltage constant at 6.43kV')
-#plt.plot(times_without_books,residuals_wo_books,label='No weight applied to gas-gap from T=0, Voltage = 6.48kV (below breakdown)')
+plt.plot(times_with_books,residuals_w_books,label='"Functioning" gas-gap 04/24')
+plt.plot(times_without_books,residuals_wo_books,label='No weight applied to gas-gap from T=0, Voltage = 6.48kV (below breakdown)')
 
 plt.xlabel('Time/seconds')
 plt.ylabel('Voltage residual from steady value/ mV')
 
-plt.annotate(f'Stable voltage w/ pressure = {mean_voltage_w_books:.2f} mV (from IV Curve)', xy=(0.60, 0.90), xycoords='axes fraction', color='black')
-#plt.annotate(f'Stable voltage w/o pressure = {mean_voltage_wo_books:.2f} mV (from IV Curve)', xy=(0.60,0.85), xycoords='axes fraction', color='black')
+plt.annotate(f'Stable voltage w/ pressure = {mean_voltage_w_books:.2f} mV (from IV Curve)', xy=(0.10, 0.80), xycoords='axes fraction', color='black')
+plt.annotate(f'Stable voltage w/o pressure = {mean_voltage_wo_books:.2f} mV (from IV Curve)', xy=(0.10,0.75), xycoords='axes fraction', color='black')
 plt.title('Voltage fluctuations from mean over period of 3 hours')
 
 
