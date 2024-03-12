@@ -78,10 +78,10 @@ def countChannels(events):
     return chanCounts
 
 def getEventTimes(events):
-    eventTimes = []
+    eventTimes = [0 for x in range(128)]
     for event in events:
         for word in event:
-            eventTimes.append(word&0xfffff)
+            eventTimes[(word>>24)&0x7f] = (word&0xfffff)
     return eventTimes
 
 def makeSingleLayer(data, name):
@@ -212,6 +212,26 @@ def divideHitCountsByRPC(data):
     phiHits = [[],[],[],[],[],[]]
     for event in range(0,len(data[0])):
         tdcCounts = [countChannels([data[tdc][event]]) for tdc in range(5)]
+        etaHits[0].append(tdcCounts[0][0:32])
+        phiHits[0].append(tdcCounts[0][32:96])
+        etaHits[1].append(tdcCounts[0][96:128])
+        phiHits[1].append(tdcCounts[1][0:64])
+        etaHits[2].append(tdcCounts[1][64:96])
+        phiHits[2].append(tdcCounts[1][96:128]+tdcCounts[2][0:32])
+        etaHits[3].append(tdcCounts[2][32:64])
+        phiHits[3].append(tdcCounts[2][64:128])
+        etaHits[4].append(tdcCounts[3][0:32])
+        phiHits[4].append(tdcCounts[3][32:96])
+        etaHits[5].append(tdcCounts[3][96:128])
+        phiHits[5].append(tdcCounts[4][0:64])
+    return etaHits,phiHits
+
+def divideEventTimesByRPC(data):
+    #Divides the number of hits in each channel into individual RPCs
+    etaHits = [[],[],[],[],[],[]]
+    phiHits = [[],[],[],[],[],[]]
+    for event in range(0,len(data[0])):
+        tdcCounts = [getEventTimes([data[tdc][event]]) for tdc in range(5)]
         etaHits[0].append(tdcCounts[0][0:32])
         phiHits[0].append(tdcCounts[0][32:96])
         etaHits[1].append(tdcCounts[0][96:128])
