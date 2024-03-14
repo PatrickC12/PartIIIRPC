@@ -135,11 +135,11 @@ class CSVPlotterApp:
             #print("File:", file)
             #print("Data:", data)
 
-            colors = plt.cm.rainbow(np.linspace(0, 1, len(selected_files)))  # Generate a list of colors
+            colors = plt.cm.rainbow(np.linspace(0, 0.3, len(selected_files)))  # Generate a list of colors. Messed around with this to avoid the cyan.
             color_index = selected_files.index(file)  # Get the index of the current file
             color = colors[color_index]  # Select the color for the current file
-            sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file, color=color,marker='o', markersize=5)
-            sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], color=color)
+            sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file,marker='o', markersize=5, color = color) 
+            sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], color = color) 
 
 
             if self.fit_lines_var.get():
@@ -169,7 +169,7 @@ class CSVPlotterApp:
 
             if self.error_bar_var.get():
                 errors = data.iloc[:, 2].replace(0, 0.01)
-                plt.errorbar(data['Voltage/kV'], data['Current/uA'], yerr=errors, fmt='o', capsize=5, label='_nolegend_',color=color)
+                plt.errorbar(data['Voltage/kV'], data['Current/uA'], yerr=errors, fmt='o', capsize=5, label='_nolegend_', color = color)
 
         plt.xlabel('Voltage (kV)')
         plt.ylabel('Current (uA)')
