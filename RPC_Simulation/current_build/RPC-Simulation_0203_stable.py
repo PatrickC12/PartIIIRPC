@@ -905,9 +905,11 @@ class RPCSimulatorApp:
         def generate_theta():
             #GENERATE MUON ZENITH ANGLE FROM MC Accept/Reject algorithm.
             def pdf(x):
-                return 4/np.pi * np.cos(x)**2
+                return 3*np.sin(x)* np.cos(x)**2
             
             while True:
+
+                #This is now invertible, perhaps it might be worth changing this to inverse transform sampling at some point... 
                 theta = np.random.uniform(0,np.pi/2)
                 p = np.random.uniform(0,pdf(0))
                 
