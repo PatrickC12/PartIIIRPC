@@ -1056,12 +1056,15 @@ class RPCSimulatorApp:
         area_m2 = max(rpc.dimensions[0] for rpc in self.rpc_list)*max(rpc.dimensions[1] for rpc in self.rpc_list)*1.1025  
         rate = muons_flux*area_m2*(1e4) #Rate /s
 
+        
         def generate_theta():
             #GENERATE MUON ZENITH ANGLE FROM MC Accept/Reject algorithm.
             def pdf(x):
-                return 4/np.pi * np.cos(x)**2
+                return 3*np.sin(x)* np.cos(x)**2
             
             while True:
+
+                #This is now invertible, perhaps it might be worth changing this to inverse transform sampling at some point... 
                 theta = np.random.uniform(0,np.pi/2)
                 p = np.random.uniform(0,pdf(0))
                 
