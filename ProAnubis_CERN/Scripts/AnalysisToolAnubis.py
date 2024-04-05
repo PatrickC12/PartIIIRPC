@@ -37,6 +37,7 @@ def importFromHDF5File(filename):
         tdc = event[0]-60928
         thisEvent = []
         for hit in event[2]:
+
             thisEvent.append(hit)
         data[tdc].append(thisEvent)
     return data
