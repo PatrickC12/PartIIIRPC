@@ -547,22 +547,23 @@ def plot_time_differences_and_event_times(df, pdf_path):
 def calculate_metric_for_combo(combo, rpc_heights):
     locations = np.array([c['location'] for c in combo])
     heights = np.array([rpc_heights[c['rpc']] for c in combo])
+    uncertainties = np.array([c['uncertainty'] for c in combo])  
+    weights = 1 / uncertainties**2
 
     try:
-        coeffs, cov = np.polyfit(locations, heights, 1, cov=True)
-        slope, intercept = coeffs
-        slope_error, intercept_error = np.sqrt(np.diag(cov))
-        predicted = slope * locations + intercept
-        residuals = heights - predicted
-        RSS = np.sum(residuals ** 2)
+        coeffs= np.polyfit(heights, locations, 1, cov=False, w=weights)
     except np.linalg.LinAlgError:
-        slope = np.inf
-        intercept = np.inf
-        slope_error, intercept_error = np.inf, np.inf
-        RSS = np.inf
-    
-    # combined_uncertainty = np.sum(uncertainties)
-    return slope, intercept, slope_error, intercept_error,RSS, combo
+        coeffs = [np.inf, np.inf]
+        cov = np.array([[np.inf, np.inf], [np.inf, np.inf]])
+
+    slope, intercept = coeffs
+    # slope_error, intercept_error = np.sqrt(np.diag(cov))
+    slope_error, intercept_error = 0, 0
+    predicted = slope * heights + intercept
+    residuals = locations - predicted
+    RSS = np.sum(residuals ** 2)
+
+    return slope, intercept, slope_error, intercept_error, RSS, combo
 
 def analyze_inter_rpc_hit_with_timing_adjusted(df):
     rpc_time_offsets = {
@@ -592,7 +593,7 @@ def analyze_inter_rpc_hit_with_timing_adjusted(df):
         'rpc5': 122.0
     }
 
-    for event_number, event_group in df.groupby('event_number'):
+    for event_number, event_group in tqdm(df.groupby('event_number'), desc="Processing Events"):
         for direction in ['eta', 'phi']:
             direction_group = event_group[event_group['strip_direction'] == direction]
             all_clusters = []
@@ -622,10 +623,15 @@ def analyze_inter_rpc_hit_with_timing_adjusted(df):
 
             combination_metrics = []
             valid_combinations = [] 
-            for n in range(3, 6):
-                for combo in combinations(all_clusters, n):
+            # for n in range(3, 4): 
+            for combo in combinations(all_clusters, 3):
+                used_rpcs_set = {c['rpc'] for c in combo}
+                
+                if not used_rpcs_set.issubset({'rpc0', 'rpc1', 'rpc2'}):
                     metric = calculate_metric_for_combo(combo, rpc_heights)
-                    if metric[4] != np.inf:
+        
+                    # Check RSS threshold here and ensure RPC combination uniqueness
+                    if metric[4] <= 10 and len(used_rpcs_set) == len(combo):
                         combination_metrics.append(metric)
                         
             # Move filtering logic outside the loop so it's not reset each time
