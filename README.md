@@ -1,6 +1,7 @@
 # PartIII RPC Project Pro-Anubis Analysis
 
 Welcome to the **Pro-Anubis Analysis** repository! This is **Peter's (Takodachi6969)** (https://github.com/Takodachi6969) main branch for pro-anubis analysis, operating in tandem with [PatrickC12](https://github.com/PatrickC12) on ProAnubis Data Analysis. This repository is structured as follows:
+![Pro-Anubis Analysis](https://github.com/PatrickC12/PartIIIRPC/6700d78c-ebca-49df-8211-f718d3735255.webp?raw=true)
 
 ## Sections
 
