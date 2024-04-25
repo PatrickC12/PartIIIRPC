@@ -174,8 +174,8 @@ def calculate_cluster_metrics_better(df, time_window, min_hits=1, max_hits=10):
                 current_cluster = initialize_cluster(hit)
             else:
                 last_hit_coordinate = current_cluster['locations'][-1][coordinate_index]
-                if abs(hit_coordinate - last_hit_coordinate) != 1 or hit['time'] - current_cluster['end_time'] > time_window:
-                    if len(current_cluster['locations']) >= min_hits:
+                if abs(hit_coordinate - last_hit_coordinate) != 1 or abs(hit['time'] - current_cluster['end_time']) > time_window:
+                    if len(current_cluster['locations']) >= min_hits and len(current_cluster['locations']) < max_hits:
                         current_cluster['size'] = len(current_cluster['locations'])
                         clusters.append(current_cluster)
                     current_cluster = initialize_cluster(hit)
