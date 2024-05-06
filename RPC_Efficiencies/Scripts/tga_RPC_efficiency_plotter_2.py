@@ -24,6 +24,7 @@ def fitExp(x,a,b,c):
 def chopper(df):
     linear = df[df['I/uA'] <= 0.1]
     exp = df[df['I/uA'] >= 0.05]
+    
     return linear, exp
 
 class CSVPlotterApp:
@@ -120,6 +121,9 @@ class CSVPlotterApp:
                     plt.legend()
                     #plt.savefig(title + '.png')
                     plt.show()
+                else:
+                    messagebox.showwarning("Wrong folder!! use IV you dumb ass, go KYS.")
+                
 
         else:
             selected_files = [file for file, var in self.csv_files.items() if var.get()]
@@ -129,7 +133,6 @@ class CSVPlotterApp:
             
             #tube colours
             colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
-
             for i in range(len(selected_files)):
                 data_path = os.path.join(folder_path, selected_files[i])
                 df = pd.read_csv(data_path)
@@ -137,16 +140,19 @@ class CSVPlotterApp:
                     df = df.sort_values(by=['V/kV'], ascending=True)
                     plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=selected_files[i].split(".")[0])
                     plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                    plt.xlabel('$V/\mathrm{kV}$')
+                    plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
+                    plt.ylim(0)
+                    #title = str(selected_files[i])
+                    plt.title('Leakage current against HV')
+                    plt.legend()
+                    #plt.savefig(title + '.png')
+                    plt.show()
+                else:
+                    messagebox.showwarning("Wrong folder!!", "Use IV folder you dumb ass, go KYS.")
 
 
-            plt.xlabel('$V/\mathrm{kV}$')
-            plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
-            plt.ylim(0)
-            #title = str(selected_files[i])
-            plt.title('Leakage current against HV')
-            plt.legend()
-            #plt.savefig(title + '.png')
-            plt.show()
+            
 
     def plot_selected_hv(self, folder_path):
         if self.separate_var.get():

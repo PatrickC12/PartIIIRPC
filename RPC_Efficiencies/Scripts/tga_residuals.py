@@ -157,7 +157,9 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
     plt.plot(np.ones(10)*voltage1, np.linspace(0,1,10), label = '$V(I = 1\mathrm{\mu A}) = $' + voltage1str +'$\mathrm{kV}$', color='r', linestyle='--')
     plt.plot(np.linspace(0,voltage1,10), np.ones(10), color='r', linestyle='--')
     plt.legend()
+
     #plt.savefig(title + '.png')
     plt.show()
 
+    
     
