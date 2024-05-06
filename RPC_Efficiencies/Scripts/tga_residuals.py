@@ -44,7 +44,11 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
     #number of points tried
     N = 50
 
-    values = np.linspace(0.031,0.201,N)
+    #values = np.linspace(0.031,0.201,N)
+    values = df['I/uA'][(df['I/uA'] >= 0.03) & (df['I/uA'] <= 0.20)]
+    N = len(values)
+    print(values)
+    print(N)
 
     #initialise array for calculating residuals
     residuals_sum = np.zeros(N)
@@ -52,7 +56,8 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
     for j in range(N):   
 
         #linear and exponential fit
-        linear, exp = chopper(df, values[j])
+        print(values.iloc[j])
+        linear, exp = chopper(df, values.iloc[j])
         poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
         a_optLinear, b_optLinear = poptLinear
 
@@ -77,7 +82,7 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
             residuals_sum[j] += ((linear['I/uA'][row]-fitLinear(linear['V/kV'][row], a_optLinear, b_optLinear))/(linear['Uncertainty/uA'][row] if linear['Uncertainty/uA'][row] > 0 else 0.01))**2
         for row in exp.index:
             residuals_sum[j] += ((exp['I/uA'][row]-fitExp(exp['V/kV'][row], a_optExp, b_optExp, c_optExp))/exp['Uncertainty/uA'][row])**2
-        print('Cutoff = ' + str(values[j]))
+        print('Cutoff = ' + str(values.iloc[j]))
         print('Sum of residuals squared = ' + str(residuals_sum[j]))    
 
     print(values)
