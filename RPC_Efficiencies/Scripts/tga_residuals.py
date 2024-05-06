@@ -26,7 +26,7 @@ def chopper(df, n):
     exp = df[df['I/uA'] >= n]
     return linear, exp
 
-folder_path = "C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/RPC_Efficiencies/IV"
+folder_path = "RPC_Efficiencies//IV"
 
 files = [file for file in os.listdir(folder_path) if file.endswith('.csv')]
 
@@ -106,16 +106,17 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
         
     plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=files[i].split(".")[0], linestyle='None')
     plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
-    plt.plot(x_linear, y_linear, color=colors[i])
-    plt.plot(x_exp, y_exp, color=colors[i])
-
+    plt.plot(x_linear, y_linear, label=f'Linear fit: y = {a_optLinear:.2f}x + {b_optLinear:.2f}', color=colors[i])
+    plt.plot(x_exp, y_exp, label=f'Exp fit: y = {b_optExp:.2e} * exp({c_optExp:.2f}x) + {a_optExp:.2f}', color=colors[i])
     plt.xlabel('$V/\mathrm{kV}$')
     plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
     plt.ylim(0)
     title = str(files[i])
     plt.title(title)
     plt.legend()
+
     #plt.savefig(title + '.png')
     plt.show()
 
+    
     
