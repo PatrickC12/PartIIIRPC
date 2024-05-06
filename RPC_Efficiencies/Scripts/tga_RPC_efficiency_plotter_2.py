@@ -11,8 +11,20 @@ from tkinter import filedialog, messagebox, ttk
 from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
+from scipy.optimize import curve_fit
 
 hep.style.use(hep.style.ATLAS)
+
+def fitLinear(x, a, b):
+    return a*x + b
+
+def fitExp(x,a,b,c):
+    return a + b*np.exp(c*x)
+
+def chopper(df):
+    linear = df[df['I/uA'] <= 0.1]
+    exp = df[df['I/uA'] >= 0.05]
+    return linear, exp
 
 class CSVPlotterApp:
     def __init__(self, master):
@@ -81,14 +93,31 @@ class CSVPlotterApp:
                 df = pd.read_csv(data_path)
                 if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
                     df = df.sort_values(by=['V/kV'], ascending=True)
+
                     plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=selected_files[i].split(".")[0])
                     plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+
+                    #linear and exponential fit
+                    linear, exp = chopper(df)
+                    poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
+                    a_optLinear, b_optLinear = poptLinear
+                    x_linear = np.linspace(linear['V/kV'].min(), linear['V/kV'].max(), 100)
+                    y_linear = fitLinear(x_linear, a_optLinear, b_optLinear)
+                    plt.plot(x_linear, y_linear)
+
+                    poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.1,0.5], maxfev=2000)
+                    a_optExp, b_optExp, c_optExp = poptExp
+
+                    x_exp = np.linspace(exp['V/kV'].min(), exp['V/kV'].max(), 100)
+                    y_exp = fitExp(x_exp, a_optExp, b_optExp, c_optExp)
+                    plt.plot(x_exp, y_exp)
+
                     plt.xlabel('$V/\mathrm{kV}$')
                     plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
                     plt.ylim(0)
                     title = str(selected_files[i])
                     plt.title(title)
-                    #plt.legend()
+                    plt.legend()
                     #plt.savefig(title + '.png')
                     plt.show()
 
@@ -108,6 +137,8 @@ class CSVPlotterApp:
                     df = df.sort_values(by=['V/kV'], ascending=True)
                     plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=selected_files[i].split(".")[0])
                     plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+
+
             plt.xlabel('$V/\mathrm{kV}$')
             plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
             plt.ylim(0)
