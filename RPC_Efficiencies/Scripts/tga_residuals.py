@@ -50,7 +50,7 @@ colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0
 
 #for i in range(len(files)):
  
-i=12
+i=8
 data_path = os.path.join(folder_path, files[i])
 df = pd.read_csv(data_path)
 if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
@@ -158,7 +158,7 @@ if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
     plt.plot(np.linspace(0,voltage1,10), np.ones(10), color='r', linestyle='--')
     plt.legend()
 
-    #plt.savefig(title + '.png')
+    #plt.savefig(title + ' Residuals.png')
     plt.show()
 
     
