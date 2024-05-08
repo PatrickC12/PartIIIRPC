@@ -16,6 +16,8 @@ Includes functions commonly used throughout the analysis, aiding in data manipul
 ## RPC_Simulation
 This segment explores attempts to create simulations on Resistive Plate Chambers (RPCs) using various geometries.
 
+Hijacked by Tom for area acceptance calculations of Scintillation Counter setup !
+
 ## RPC_Leakage_Current_Plotters
 Contains miscellaneous tools for the experimental aspect of the project:
 - **Plotting and fitting IV curves** for gas gaps.
