@@ -1,14 +1,6 @@
-# PartIII RPC Project Pro-Anubis Analysis
-
-Welcome to the **Pro-Anubis Analysis** repository! This is **Peter's (Takodachi6969)** (https://github.com/Takodachi6969) main branch for pro-anubis analysis, operating in tandem with [PatrickC12](https://github.com/PatrickC12) on ProAnubis Data Analysis. This repository is structured as follows:
+# PartIII RPC Project Tools
 
 ## Sections
-
-### ProAnubis_Cern
-This directory contains:
-- **Data:** All relevant datasets used in the analyses.
-- **Plots:** Visual representations and results of the data analysis.
-- **Code:** Jupyter Notebook files that detail the analysis processes.
 
 ### Scripts
 Includes functions commonly used throughout the analysis, aiding in data manipulation and visualization.
@@ -22,6 +14,15 @@ Hijacked by Tom for area acceptance calculations of Scintillation Counter setup 
 Contains miscellaneous tools for the experimental aspect of the project:
 - **Plotting and fitting IV curves** for gas gaps.
 - **Analysis tools** for SiPMs (Silicon Photomultipliers) and other components.
+
+### Peter's ProANUBIS analsysis
+
+This is **Peter's (Takodachi6969)** (https://github.com/Takodachi6969) main branch for pro-anubis analysis.
+
+This directory contains:
+- **Data:** All relevant datasets used in the analyses.
+- **Plots:** Visual representations and results of the data analysis.
+- **Code:** Jupyter Notebook files that detail the analysis processes.
 
 ## Additional Resources
 More data and resources can be accessed on our [Google Drive](https://drive.google.com/drive/folders/1h3tAO2pH-oXBDvoifNG5Sx7_lPVB5Iju?usp=drive_link).
