@@ -21,6 +21,9 @@ def fitLinear(x, a, b):
 def fitExp(x,a,b,c):
     return a + b*np.exp(c*x)
 
+def fitCombined(x,a,b,c):
+    return a*x + b*np.exp(c*x)
+
 def chopper(df, n):
     linear = df[df['I/uA'] <= n]
     exp = df[df['I/uA'] >= n]
@@ -58,12 +61,12 @@ def fittingPoint(df):
         #linear and exponential fit
         #print(values.iloc[j])
         linear, exp = chopper(df, values.iloc[j])
-        poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
+        poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[0.01,0])
         a_optLinear, b_optLinear = poptLinear
 
         x_linear = np.linspace(linear['V/kV'].min(), linear['V/kV'].max(), 100)
 
-        poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.1,0.5], maxfev=2000)
+        poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.001,3], maxfev=5000)
         a_optExp, b_optExp, c_optExp = poptExp
 
         x_exp = np.linspace(exp['V/kV'].min(), exp['V/kV'].max(), 100)
@@ -83,10 +86,98 @@ def fittingPoint(df):
     poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
     a_optLinear, b_optLinear = poptLinear
 
-    poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.1,0.5], maxfev=2000)
+    poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.001,3], maxfev=4000)
     a_optExp, b_optExp, c_optExp = poptExp
 
-    return critVoltage(linear, df, poptLinear, poptExp)
+    #combined fit (new for residuals_2)
+    poptCombined, pcovCombined = curve_fit(fitCombined, df['V/kV'], df['I/uA'], p0=[a_optLinear, b_optExp, c_optExp])
+    a_optCombined, b_optCombined, c_optCombined = poptCombined
+
+    x_combined = np.linspace(df['V/kV'].min(), df['V/kV'].max(), 100)
+    y_combined = fitCombined(x_combined, a_optCombined, b_optCombined, c_optCombined)
+
+    return critVoltage(linear, df, poptLinear, poptExp), poptCombined, x_combined, y_combined
+
+def fittingPoint_large_rpc(df):
+    df = df.reset_index(drop=True)
+
+    #number of points tried
+    N = 50
+
+    #values = np.linspace(0.031,0.201,N)
+    values = df['Current/uA'][(df['Current/uA'] >= 0.03) & (df['Current/uA'] <= 10.0)]
+    N = len(values)
+    
+    #initialise array for calculating residuals
+    residuals_sum = np.zeros(N)
+
+    for j in range(N):   
+
+        #linear and exponential fit
+        #print(values.iloc[j])
+        linear, exp = chopper(df, values.iloc[j])
+        poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
+        a_optLinear, b_optLinear = poptLinear
+
+        x_linear = np.linspace(linear['V/kV'].min(), linear['V/kV'].max(), 100)
+
+        poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.1,0.7], maxfev=5000)
+        a_optExp, b_optExp, c_optExp = poptExp
+
+        x_exp = np.linspace(exp['V/kV'].min(), exp['V/kV'].max(), 100)
+
+        #calculate residuals
+        for row in linear.index:
+            residuals_sum[j] += (linear['I/uA'][row]-fitLinear(linear['V/kV'][row], a_optLinear, b_optLinear))**2
+        for row in exp.index:
+            residuals_sum[j] += (exp['I/uA'][row]-fitExp(exp['V/kV'][row], a_optExp, b_optExp, c_optExp))**2
+
+    index = np.argmin(residuals_sum)
+    
+    threshold = values.index[index]
+    
+    #linear and exponential fit
+    linear, exp = finalChop(df, threshold)
+    poptLinear, pcovLinear = curve_fit(fitLinear, linear['V/kV'], linear['I/uA'], p0=[1,1])
+    a_optLinear, b_optLinear = poptLinear
+
+    poptExp, pcovExp = curve_fit(fitExp, exp['V/kV'], exp['I/uA'], p0=[0,0.1,0.7], maxfev=4000)
+    a_optExp, b_optExp, c_optExp = poptExp
+
+    #combined fit (new for residuals_2)
+    poptCombined, pcovCombined = curve_fit(fitCombined, df['V/kV'], df['I/uA'], p0=[a_optLinear, b_optExp, c_optExp])
+    a_optCombined, b_optCombined, c_optCombined = poptCombined
+
+    x_combined = np.linspace(df['V/kV'].min(), df['V/kV'].max(), 100)
+    y_combined = fitCombined(x_combined, a_optCombined, b_optCombined, c_optCombined)
+
+    return critVoltage(linear, df, poptLinear, poptExp), poptCombined, x_combined, y_combined
+
+def efficiency_fit_polynom(df):
+    x=df[df['HV/kV']>0]['HV/kV'].astype(float)
+    y=df[df['Efficiency/%']>0]['Efficiency/%'].astype(float)
+
+    p= np.polyfit(x, y, 5)
+    x_values = np.linspace(df['HV/kV'].min(), df['HV/kV'].max(), 100)
+    y_values = p[0] * x_values**5 + p[1] * x_values**4 + p[2] * x_values**3 + p[3] * x_values**2 + p[4] * x_values + p[5]
+
+    return x_values, y_values
+
+def logistic(x, a, b, c):
+    return a/(1+np.exp(-b*(x-c)))
+
+def efficiency_fit_logistic(df):
+    x=df[df['Efficiency/%']>0]['HV/kV'].astype(float)
+    y=df[df['Efficiency/%']>0]['Efficiency/%'].astype(float)
+
+    poptLogistic, pcovLogistic = curve_fit(logistic, x, y, p0=[90, 10, 5])
+
+    print(poptLogistic)
+
+    x_values = np.linspace(df['HV/kV'].min(), df['HV/kV'].max(), 100)
+    y_values = logistic(x_values, *poptLogistic)
+
+    return x_values, y_values
 
 
 class CSVPlotterApp:
@@ -127,6 +218,9 @@ class CSVPlotterApp:
             self.plot_iv_button = ttk.Button(self.frame, text="IV curve", command=lambda: self.plot_selected_iv(folder_path))
             self.plot_iv_button.pack(pady=5)
 
+            self.plot_iv_large_rpc_button = ttk.Button(self.frame, text="Large RPC IV curve", command=lambda: self.plot_selected_iv_large_rpc(folder_path))
+            self.plot_iv_large_rpc_button.pack(pady=5)
+
             self.plot_hv_button = ttk.Button(self.frame, text="HV efficiency", command=lambda: self.plot_selected_hv(folder_path))
             self.plot_hv_button.pack(pady=5)
 
@@ -162,13 +256,16 @@ class CSVPlotterApp:
                     df = df.sort_values(by=['V/kV'], ascending=True)
 
                     #fitting function
+                    voltageCurrent, poptCombined, x_combined, y_combined = fittingPoint(df)
+                    voltage, current = voltageCurrent
+                    plt.plot(x_combined, y_combined, color=colors[i], label = 'best fit curve $I={0:.2f}V+{1:.10f} \exp {2:.2f}V$'.format(*poptCombined))
+                    
                     if self.fitting_var.get():
-                        voltage, current = fittingPoint(df)
                         voltageStr = str(round(voltage, 2))
                         plt.scatter(voltage, current, color='r', marker='x', s=100, zorder=10, label = "Critical point = " + voltageStr + '$\mathrm{kV}$')
                         print(voltage, current)
 
-                    plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=selected_files[i].split(".")[0])
+                    plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], linestyle='None', label=selected_files[i].split(".")[0])
                     plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
 
                     plt.xlabel('$V/\mathrm{kV}$')
@@ -191,32 +288,73 @@ class CSVPlotterApp:
             
             #tube colours
             colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
+            markers = ['^', 'v', 'D', 'd', 'x', 'o']
+            captions=['94.7% Freon, 5% Isobutane, 0.3% $\mathrm{SF_6}$', '95% Freon, 5% Isobutane', '80% CERN, 20% $\mathrm{CO_2}$', '70% CERN, 30% $\mathrm{CO_2}$', '60% CERN, 40% $\mathrm{CO_2}$']
             for i in range(len(selected_files)):
                 data_path = os.path.join(folder_path, selected_files[i])
                 df = pd.read_csv(data_path)
                 if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
                     df = df.sort_values(by=['V/kV'], ascending=True)
                     #fitting function
+                    voltageCurrent, poptCombined, x_combined, y_combined = fittingPoint(df)
+                    voltage, current = voltageCurrent
+                    plt.plot(x_combined, y_combined, color=colors[i])
                     if self.fitting_var.get():
-                        voltage, current = fittingPoint(df)
                         voltageStr = str(round(voltage, 2))
                         plt.scatter(voltage, current, color='r', marker='x', s=100, zorder=10, label = "Critical point = " + voltageStr + '$\mathrm{kV}$')
-                    plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], label=selected_files[i].split(".")[0])
-                    plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                    plt.plot(df['V/kV'], df['I/uA'], marker=markers[i], color=colors[i], linestyle='None', label=captions[i])
+                    plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='None', capsize=5, label='_nolegend_', color = colors[i])
                     
                 else:
                     messagebox.showwarning("Wrong folder!!")
-            plt.xlabel('$V/\mathrm{kV}$')
-            plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
+            plt.xlabel('$V$ $[\mathrm{kV}$]')
+            plt.ylabel('$I$ $[\mathrm{\mu A}$]')
             plt.ylim(0)
             #title = str(selected_files[i])
-            title = str(selected_files[i])
+            title = "Adding $\mathrm{SF_6}$"
             plt.title(title)
             plt.legend()
-            plt.savefig(title + '.png')
+            #plt.figure(figsize=[6.4, 4.8])
+            #plt.savefig(title + '.pdf')
             plt.show()
 
+    def plot_selected_iv_large_rpc(self, folder_path):
+        selected_files = [file for file, var in self.csv_files.items() if var.get()]
+        if not selected_files:
+            messagebox.showwarning("No Selection", "No files selected for plotting.")
+            return
+        
+        #tube colours
+        colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
 
+        for i in range(len(selected_files)):
+            data_path = os.path.join(folder_path, selected_files[i])
+            df = pd.read_csv(data_path)
+            df['I/uA'] = df['Current/uA']
+            df['V/kV'] = df['Voltage/kV']
+            if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
+                df = df.sort_values(by=['V/kV'], ascending=True)
+                #fitting function
+                voltageCurrent, poptCombined, x_combined, y_combined = fittingPoint_large_rpc(df)
+                voltage, current = voltageCurrent
+                plt.plot(x_combined, y_combined, color=colors[i])
+                if self.fitting_var.get():
+                    voltageStr = str(round(voltage, 2))
+                    plt.scatter(voltage, current, color='r', marker='x', s=100, zorder=10, label = "Critical point = " + voltageStr + '$\mathrm{kV}$')
+                plt.plot(df['V/kV'], df['I/uA'], marker='.', color=colors[i], linestyle='None', label=selected_files[i].split(".")[0])
+                plt.errorbar(df['V/kV'], df['I/uA'], yerr=df['Uncertainty/uA'], fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                
+            else:
+                messagebox.showwarning("Wrong folder!!")
+        plt.xlabel('$V/\mathrm{kV}$')
+        plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
+        plt.ylim(0)
+        #title = str(selected_files[i])
+        title = str(selected_files[i])
+        plt.title(title)
+        plt.legend()
+        #plt.savefig(title + '.pdf')
+        plt.show()
             
 
     def plot_selected_hv(self, folder_path):
@@ -228,13 +366,14 @@ class CSVPlotterApp:
 
             #tube colours
             colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
-
+            
             for i in range(len(selected_files)):
                 data_path = os.path.join(folder_path, selected_files[i])
                 df = pd.read_csv(data_path)
                 if 'Numerator' in df.columns:
                     df['Efficiency/%'] = df['Numerator']/df['Denominator']*100
                     df = df.sort_values(by=['HV/kV'], ascending=True)
+
                     plt.plot(df['HV/kV'], df['Efficiency/%'], marker='.',color=colors[i])
                     errors=np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator']))
                     plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, fmt='o', capsize=5, label='_nolegend_', color = colors[i])
@@ -255,7 +394,9 @@ class CSVPlotterApp:
 
             #tube colours
             colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
-
+            markers = ['^', 'v', 'D', 'd', 'x', 'o']
+            captions=['94.7% Freon, 5% Isobutane, 0.3% $\mathrm{SF_6}$', '95% Freon, 5% Isobutane', '80% CERN, 20% $\mathrm{CO_2}$', '70% CERN, 30% $\mathrm{CO_2}$', '60% CERN, 40% $\mathrm{CO_2}$']
+            
             for i in range(len(selected_files)):
                 data_path = os.path.join(folder_path, selected_files[i])
                 df = pd.read_csv(data_path)
@@ -263,15 +404,25 @@ class CSVPlotterApp:
                     df['Efficiency/%'] = df['Numerator']/df['Denominator']*100
                     df = df.sort_values(by=['HV/kV'], ascending=True)
                     maxEff = df['Efficiency/%'].max()
-                    plt.plot(df['HV/kV'], df['Efficiency/%'], marker='.',color=colors[i], label=selected_files[i].split(".")[0] + ", maxEff = {0:.2f}".format(maxEff) + "%")
+
+                    #plot polynomial fit
+                    #x_values, y_values = efficiency_fit_polynom(df)
+                    #plt.plot(x_values, y_values, label="polyfit")
+
+                    #plot alternative fit
+                    x_values, y_values = efficiency_fit_logistic(df)
+                    plt.plot(x_values, y_values, label='_nolegend_', color=colors[i])
+
+                    plt.plot(df['HV/kV'], df['Efficiency/%'], marker=markers[i],color=colors[i], linestyle='None', label=captions[i])
                     errors=np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator']))
-                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, fmt='None', capsize=5, label='_nolegend_', color = colors[i])
+                    plt.plot(x_values, y_values, label='_nolegend_', color=colors[i])
                     
-            plt.xlabel('$V/\mathrm{kV}$')
-            plt.ylabel('Efficiency/%')
+            plt.xlabel('$V$ [$\mathrm{kV}$]')
+            plt.ylabel('Efficiency [%]')
             plt.ylim(0)
             #title = str(selected_files[i])
-            plt.title("Efficiency against HV")
+            plt.title("Adding $\mathrm{SF_6}$")
             plt.legend()
             #plt.savefig(title + '.Efficiency.png')
             plt.show()      
