@@ -17,6 +17,8 @@ Contains miscellaneous tools for the experimental aspect of the project:
 
 ### Peter's ProANUBIS analsysis
 
+It would be nicer if this was in a separate GitHub repository, thanks.
+
 This is **Peter's (Takodachi6969)** (https://github.com/Takodachi6969) main branch for pro-anubis analysis.
 
 This directory contains:
