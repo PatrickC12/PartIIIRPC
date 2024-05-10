@@ -112,17 +112,18 @@ class CSVPlotterApp:
                     x_exp = np.linspace(exp['V/kV'].min(), exp['V/kV'].max(), 100)
                     y_exp = fitExp(x_exp, a_optExp, b_optExp, c_optExp)
                     plt.plot(x_exp, y_exp)
-
-                    plt.xlabel('$V/\mathrm{kV}$')
-                    plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
-                    plt.ylim(0)
-                    title = str(selected_files[i])
-                    plt.title(title)
-                    plt.legend()
-                    #plt.savefig(title + '.png')
-                    plt.show()
                 else:
                     messagebox.showwarning("Wrong folder!! use IV you dumb ass, go KYS.")
+
+            plt.xlabel('$V/\mathrm{kV}$')
+            plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
+            plt.ylim(0)
+            title = str(selected_files[i])
+            plt.title(title)
+            plt.legend()
+            #plt.savefig(title + '.png')
+            plt.show()
+
                 
 
         else:
@@ -143,13 +144,14 @@ class CSVPlotterApp:
                     plt.xlabel('$V/\mathrm{kV}$')
                     plt.ylabel('$\mathrm{I}/\mathrm{\mu A}$')
                     plt.ylim(0)
-                    #title = str(selected_files[i])
-                    plt.title('Leakage current against HV')
-                    plt.legend()
-                    #plt.savefig(title + '.png')
-                    plt.show()
                 else:
                     messagebox.showwarning("Wrong folder!!", "Use IV folder you dumb ass, go KYS.")
+            #title = str(selected_files[i])
+            plt.title('Leakage current against HV')
+            plt.legend()
+            #plt.savefig(title + '.png')
+            plt.show()
+
 
 
             
@@ -172,7 +174,7 @@ class CSVPlotterApp:
                     df = df.sort_values(by=['HV/kV'], ascending=True)
                     plt.plot(df['HV/kV'], df['Efficiency/%'], marker='.',color=colors[i])
                     errors=np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator']))
-                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, capsize=5, label='_nolegend_', color = colors[i])
                     
                     plt.xlabel('$V/\mathrm{kV}$')
                     plt.ylabel('Efficiency/%')
@@ -198,8 +200,10 @@ class CSVPlotterApp:
                     df['Efficiency/%'] = df['Numerator']/df['Denominator']*100
                     df = df.sort_values(by=['HV/kV'], ascending=True)
                     plt.plot(df['HV/kV'], df['Efficiency/%'], marker='.',color=colors[i], label=selected_files[i].split(".")[0])
-                    errors=np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator']))
-                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, fmt='o', capsize=5, label='_nolegend_', color = colors[i])
+                    errors=3 * np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator']))
+                    plt.errorbar(df['HV/kV'], df['Efficiency/%'], yerr=errors*100, capsize=5, label='_nolegend_', color = colors[i])
+                else:
+                    messagebox.showwarning("Wrong Folder", "Go KYS")
                     
             plt.xlabel('$V/\mathrm{kV}$')
             plt.ylabel('Efficiency/%')
