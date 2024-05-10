@@ -28,7 +28,3 @@ This directory contains:
 
 ## Additional Resources
 More data and resources can be accessed on our [Google Drive](https://drive.google.com/drive/folders/1h3tAO2pH-oXBDvoifNG5Sx7_lPVB5Iju?usp=drive_link).
-
----
-
-Stay tuned for more updates and detailed descriptions of each section!
