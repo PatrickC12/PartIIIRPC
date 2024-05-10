@@ -143,12 +143,20 @@ class CSVPlotterApp:
             colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
             color_index = selected_files.index(file)  # Get the index of the current file
             color = colors[color_index]  # Select the color for the current file
-            if color_index % 2 == 0:
-                #sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file.split(".")[0],marker='o', markersize=5, color=color)
-                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0],marker='o',markersize=5, color=color)
-            else:
+            markers = ['^', 'v', 'D', 'd']
+            captions=['100% Argon', '100% $\mathrm{CO_2}$', '100% Isobutane', '100% $\mathrm{N_2}$']
+            if color_index  == 2:
+                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[0],markersize=5, color=color)
+            if color_index  ==  6:
+                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[1],markersize=5, color=color)
+            if color_index  == 7:
+                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[2],markersize=5, color=color)
+            if color_index == 8:
+                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[3],markersize=5, color=color)
+            
+            if color_index != 2 and color_index != 6 and color_index != 7 and color_index != 8:
                 #sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file.split(".")[0],marker='o', linestyle = '--', markersize=5, color=color) 
-                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0],marker='o',markersize=5, color=color)
+                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker='o',markersize=5, color=color)
             #sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], color=color) 
 
 
@@ -179,13 +187,14 @@ class CSVPlotterApp:
 
             if self.error_bar_var.get():
                 errors = data.iloc[:, 2].replace(0, 0.01)
-                plt.errorbar(data['Voltage/kV'], data['Current/uA'], yerr=errors, fmt='o', capsize=5, label='_nolegend_', color = color)
+                plt.errorbar(data['Voltage/kV'], data['Current/uA'], yerr=errors, fmt='o', marker='None', capsize=5, label='_nolegend_', color = color)
 
-        plt.xlabel('Voltage/kV')
+        plt.xlabel('Voltage [kV]')
         plt.ylim(0)
-        plt.ylabel('Current/$\mathrm{\mu} A$')
-        plt.title('Threshold Voltage against Current')
+        plt.ylabel('Current [$\mathrm{\mu} A$]')
+        plt.title('Large RPC leakage current against voltage')
         plt.legend()
+        #plt.savefig('All large RPC IV.pdf')
         plt.show()
 
 
