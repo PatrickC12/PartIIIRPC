@@ -8,8 +8,10 @@ import mplhep as hep
 hep.style.use(hep.style.ATLAS)
 
 compNo = 1
-loc="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Muons vs dark counts"
+channels = 4
 
+loc="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Muons vs dark counts"
+loc1="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Comparator tests"
 
 def sort_files(loc):
     fp=[]
@@ -19,15 +21,15 @@ def sort_files(loc):
 
     for i in range(compNo):
         fp.append(files[i])
-    print(fp)
+    #print(fp)
 
     chNames=[]
 
     for i in range(compNo):
-        redunanter, redundant, used = fp[i].partition('C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/muons vs dark counts\\')
+        redunanter, redundant, used = fp[i].partition('C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Muons vs dark counts\\')
         chNames.append(used)
 
-    print(chNames)
+    #print(chNames)
 
     return fp, chNames
 
@@ -56,7 +58,7 @@ def extract_columns(file_path):
 
 def analyze_folder(directory):
     files = glob.glob(os.path.join(directory, "*.csv"))
-    print(files)
+    #print(files)
     data = []
 
     for file_path in files:
@@ -84,12 +86,15 @@ for i in range(compNo):
   #print(df_results[i])
 
 colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
+labels = ['SiPM 1', 'SiPM 2', 'Both SiPMs', 'Either SiPM']
+markers = ['^', 'v', 'D', 'd', 'x', 'o']
 
 for i in range(compNo):
-  plt.plot(df_results[i]['voltage'], df_results[i]['count_rate_0'], marker ='.', linestyle='-', label=chNames[i], color=colors[i])
+  for j in range(channels):
+    plt.plot(df_results[i]['voltage'], df_results[i][f'count_rate_{j}'], marker =markers[j], markersize=3, linestyle='-', label=labels[j], color=colors[j])
 
-plt.xlabel('SiPM Threshold Voltage/mV')
-plt.ylabel('Count Rate/Hz')
+plt.xlabel('SiPM Threshold Voltage [mV]')
+plt.ylabel('Count Rate [Hz]')
 plt.title('Count Rate vs. Voltage')
 plt.yscale('log')
 
