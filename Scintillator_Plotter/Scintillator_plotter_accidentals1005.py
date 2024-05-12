@@ -4,14 +4,14 @@ import os
 import glob
 import matplotlib.pyplot as plt
 import mplhep as hep
+import numpy as np
 
 hep.style.use(hep.style.ATLAS)
 
 compNo = 1
-channels = 4
+channels = 6
 
-loc="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Muons vs dark counts"
-loc1="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Comparator tests"
+loc="C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/Scintillator_Plotter/Accidentals"
 
 def sort_files(loc):
     fp=[]
@@ -54,6 +54,8 @@ def extract_columns(file_path):
         results[f'count_{i-2}'] = count_diff
         results[f'time_diff'] = time_diff
 
+        results[f'Error_{i-2}'] = np.sqrt(results[f'count_rate_{i-2}'])
+
     return results
 
 def analyze_folder(directory):
@@ -86,12 +88,13 @@ for i in range(compNo):
   #print(df_results[i])
 
 colors = ['#b36305', '#e32017', '#ffd300', '#00782a', '#6950a1', '#f3a9bb', '#a0a5a9','#9b0056','#000000','#003688','#0098d4','#95cdba','#00a4a7','#ee7c0e','#94b817','#e21836' ]
-labels = ['SiPM 1', 'SiPM 2', 'Both SiPMs', 'Either SiPM']
+labels = ['Both scintillators (OR)', 'Both scintillators (AND)', 'Either SiPM in scintillator 1', 'Either SiPM in scintillator 2', 'Scintillator 1, SiPM 1', 'Scintillator 1, SiPM 2']
 markers = ['^', 'v', 'D', 'd', 'x', 'o']
 
 for i in range(compNo):
   for j in range(channels):
     plt.plot(df_results[i]['voltage'], df_results[i][f'count_rate_{j}'], marker =markers[j], markersize=3, linestyle='-', label=labels[j], color=colors[j])
+    plt.errorbar(df_results[i]['voltage'], df_results[i][f'count_rate_{j}'], yerr=df_results[i][f'Error_{j}'], capsize=5, label='_nolegend_', color = colors[j], markersize=2)
 
 plt.xlabel('SiPM threshold voltage [mV]')
 plt.ylabel('Count rate [Hz]')
