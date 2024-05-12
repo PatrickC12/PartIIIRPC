@@ -29,7 +29,7 @@ def chopper(df, n):
     exp = df[df['I/uA'] >= n]
     return linear, exp
 
-def finalChop(df, threshold):
+def finalChop(df, threshold):   
     linear = df.iloc[:threshold+1]
     exp = df.iloc[threshold:]
     return linear, exp
