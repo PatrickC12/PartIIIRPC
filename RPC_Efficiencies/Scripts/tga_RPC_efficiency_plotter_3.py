@@ -199,9 +199,9 @@ def peak_efficiencies(gas, file, poptLogistic):
 
     maxEff = file['Efficiency/%'].max()
     plateau = poptLogistic[0]
+    error = file[file['Efficiency/%'] == maxEff]['error'].values[0]
 
-
-    dfNew = pd.DataFrame([[gas, 'blank', 'blank', 'blank', maxEff, plateau]], columns=['File','Critical voltage/kV','Critical current/uA', 'V(1uA)/kV', 'Max_eff/%', 'plateau/%'])
+    dfNew = pd.DataFrame([[gas, 'blank', 'blank', 'blank', maxEff, plateau, error]], columns=['File','Critical voltage/kV','Critical current/uA', 'V(1uA)/kV', 'Max_eff/%', 'plateau/%', 'error_in_max/%'])
     df = pd.concat([df, dfNew])
 
     df.to_csv('Critical_voltages.csv')
@@ -501,7 +501,7 @@ class CSVPlotterApp:
             if 'Numerator' in df.columns:
                 df['Efficiency/%'] = df['Numerator']/df['Denominator']*100
                 df = df.sort_values(by=['HV/kV'], ascending=True)
-                
+                df['error']=(np.sqrt((df['Efficiency/%']/100*(1-df['Efficiency/%']/100)/df['Denominator'])))*100
 
                 #plot alternative fit
                 x_values, y_values, poptLogistic = efficiency_fit_logistic(df)
