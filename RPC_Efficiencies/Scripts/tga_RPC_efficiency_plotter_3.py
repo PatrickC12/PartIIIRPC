@@ -96,7 +96,21 @@ def fittingPoint(df):
     x_combined = np.linspace(df['V/kV'].min(), df['V/kV'].max(), 100)
     y_combined = fitCombined(x_combined, a_optCombined, b_optCombined, c_optCombined)
 
-    return critVoltage(linear, df, poptLinear, poptExp), poptCombined, x_combined, y_combined
+    return critVoltage(linear, df, poptLinear, poptExp), poptCombined, x_combined, y_combined, poptExp
+
+def critical_voltages(gas, voltage, current, poptExp):
+
+    data_path = "C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/RPC_Efficiencies/Critical_voltages.csv"
+    df = pd.read_csv(data_path)
+
+    v1uA = voltage1uA(poptExp)
+
+    dfNew = pd.DataFrame([[gas, voltage, current, v1uA, 'blank', 'blank']], columns=['File','Critical voltage/kV','Critical current/uA', 'V(1uA)/kV', 'Max_eff/%', 'plateau/%'])
+    df = pd.concat([df, dfNew])
+
+    df.to_csv('Critical_voltages.csv')
+
+    return 
 
 def fittingPoint_large_rpc(df):
     df = df.reset_index(drop=True)
@@ -170,14 +184,29 @@ def efficiency_fit_logistic(df):
     x=df[df['Efficiency/%']>0]['HV/kV'].astype(float)
     y=df[df['Efficiency/%']>0]['Efficiency/%'].astype(float)
 
-    poptLogistic, pcovLogistic = curve_fit(logistic, x, y, p0=[90, 10, 5])
+    poptLogistic, pcovLogistic = curve_fit(logistic, x, y, p0=[80, 7, 6])
 
     print(poptLogistic)
 
     x_values = np.linspace(df['HV/kV'].min(), df['HV/kV'].max(), 100)
     y_values = logistic(x_values, *poptLogistic)
 
-    return x_values, y_values
+    return x_values, y_values, poptLogistic
+
+def peak_efficiencies(gas, file, poptLogistic):
+    data_path = "C:/Users/tomad/OneDrive - University of Cambridge/Cambridge/Fourth Year/Project/Repo/PartIIIRPC-1/RPC_Efficiencies/Critical_voltages.csv"
+    df = pd.read_csv(data_path)
+
+    maxEff = file['Efficiency/%'].max()
+    plateau = poptLogistic[0]
+
+
+    dfNew = pd.DataFrame([[gas, 'blank', 'blank', 'blank', maxEff, plateau]], columns=['File','Critical voltage/kV','Critical current/uA', 'V(1uA)/kV', 'Max_eff/%', 'plateau/%'])
+    df = pd.concat([df, dfNew])
+
+    df.to_csv('Critical_voltages.csv')
+
+    return 
 
 
 class CSVPlotterApp:
@@ -215,6 +244,12 @@ class CSVPlotterApp:
                 chk.pack(anchor='w')
 
             #choose your option (only pick one)
+            self.plot_data_button = ttk.Button(self.frame, text="Data", command=lambda: self.data(folder_path))
+            self.plot_data_button.pack(pady=5)
+
+            self.plot_data_hv_button = ttk.Button(self.frame, text="Other data iykyk", command=lambda: self.data_hv(folder_path))
+            self.plot_data_hv_button.pack(pady=5)
+
             self.plot_iv_button = ttk.Button(self.frame, text="IV curve", command=lambda: self.plot_selected_iv(folder_path))
             self.plot_iv_button.pack(pady=5)
 
@@ -239,6 +274,26 @@ class CSVPlotterApp:
             self.fitting_chk = ttk.Checkbutton(self.frame, text="Find V_crit", variable=self.fitting_var)
             self.fitting_chk.pack(pady=5)
 
+    def data(self, folder_path):
+        selected_files = [file for file, var in self.csv_files.items() if var.get()]
+        if not selected_files:
+            messagebox.showwarning("No Selection", "No files selected for plotting.")
+            return
+        
+        for i in range(len(selected_files)):
+            data_path = os.path.join(folder_path, selected_files[i])
+            df = pd.read_csv(data_path)
+            if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
+                df = df.sort_values(by=['V/kV'], ascending=True)
+                #fitting function
+                voltageCurrent, poptCombined, x_combined, y_combined, poptExp = fittingPoint(df)
+                voltage, current = voltageCurrent
+
+                #read critical voltages
+                critical_voltages(selected_files[i], voltage, current, poptExp)
+        
+        messagebox.showinfo("Message", "Data reading complete")
+
     def plot_selected_iv(self, folder_path):
         if self.separate_var.get():
             selected_files = [file for file, var in self.csv_files.items() if var.get()]
@@ -256,7 +311,7 @@ class CSVPlotterApp:
                     df = df.sort_values(by=['V/kV'], ascending=True)
 
                     #fitting function
-                    voltageCurrent, poptCombined, x_combined, y_combined = fittingPoint(df)
+                    voltageCurrent, poptCombined, x_combined, y_combined, poptExp = fittingPoint(df)
                     voltage, current = voltageCurrent
                     plt.plot(x_combined, y_combined, color=colors[i], label = 'best fit curve $I={0:.2f}V+{1:.10f} \exp {2:.2f}V$'.format(*poptCombined))
                     
@@ -296,8 +351,12 @@ class CSVPlotterApp:
                 if 'I/uA' in df.columns and 'Efficiency/%' not in df.columns:
                     df = df.sort_values(by=['V/kV'], ascending=True)
                     #fitting function
-                    voltageCurrent, poptCombined, x_combined, y_combined = fittingPoint(df)
+                    voltageCurrent, poptCombined, x_combined, y_combined, poptExp = fittingPoint(df)
                     voltage, current = voltageCurrent
+
+                    #read critical voltages
+                    #critical_voltages(selected_files[i], voltage, current, poptExp)
+
                     plt.plot(x_combined, y_combined, color=colors[i])
                     if self.fitting_var.get():
                         voltageStr = str(round(voltage, 2))
@@ -410,7 +469,9 @@ class CSVPlotterApp:
                     #plt.plot(x_values, y_values, label="polyfit")
 
                     #plot alternative fit
-                    x_values, y_values = efficiency_fit_logistic(df)
+                    x_values, y_values, poptLogistic = efficiency_fit_logistic(df)
+
+                    #plot logistic fit
                     plt.plot(x_values, y_values, label='_nolegend_', color=colors[i])
 
                     plt.plot(df['HV/kV'], df['Efficiency/%'], marker=markers[i],color=colors[i], linestyle='None', label=captions[i])
@@ -425,7 +486,30 @@ class CSVPlotterApp:
             plt.title("Adding $\mathrm{SF_6}$")
             plt.legend()
             #plt.savefig(title + '.Efficiency.png')
-            plt.show()      
+            plt.show()  
+
+    def data_hv(self, folder_path):
+        plt.figure()
+        selected_files = [file for file, var in self.csv_files.items() if var.get()]
+        if not selected_files:
+            messagebox.showwarning("No Selection", "No files selected for plotting.")
+            return
+
+        for i in range(len(selected_files)):
+            data_path = os.path.join(folder_path, selected_files[i])
+            df = pd.read_csv(data_path)
+            if 'Numerator' in df.columns:
+                df['Efficiency/%'] = df['Numerator']/df['Denominator']*100
+                df = df.sort_values(by=['HV/kV'], ascending=True)
+                
+
+                #plot alternative fit
+                x_values, y_values, poptLogistic = efficiency_fit_logistic(df)
+
+                #take max efficiencies
+                peak_efficiencies(selected_files[i], df, poptLogistic) 
+
+        messagebox.showinfo("Message", "Data reading complete")   
 
     def plot_selected_vth(self, folder_path):
         if self.separate_var.get():
