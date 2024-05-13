@@ -144,7 +144,8 @@ class CSVPlotterApp:
             color_index = selected_files.index(file)  # Get the index of the current file
             color = colors[color_index]  # Select the color for the current file
             markers = ['^', 'v', 'D', 'd']
-            captions=['100% Argon', '100% $\mathrm{CO_2}$', '100% Isobutane', '100% $\mathrm{N_2}$']
+            captions=['$\mathrm{29^{th}}$ February', '$\mathrm{6^{th}}$ March', '$\mathrm{11^{th}}$ March', '100% $\mathrm{N_2}$']
+            """
             if color_index  == 2:
                 plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[0],markersize=5, color=color)
             if color_index  ==  6:
@@ -153,10 +154,10 @@ class CSVPlotterApp:
                 plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[2],markersize=5, color=color)
             if color_index == 8:
                 plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker=markers[3],markersize=5, color=color)
-            
-            if color_index != 2 and color_index != 6 and color_index != 7 and color_index != 8:
-                #sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file.split(".")[0],marker='o', linestyle = '--', markersize=5, color=color) 
-                plt.plot(data['Voltage/kV'], data['Current/uA'], label=file.split(".")[0] ,marker='o',markersize=5, color=color)
+            """
+            #if color_index != 2 and color_index != 6 and color_index != 7 and color_index != 8:
+            #sns.lineplot(x=data['Voltage/kV'], y=data['Current/uA'], label=file.split(".")[0],marker='o', linestyle = '--', markersize=5, color=color) 
+            plt.plot(data['Voltage/kV'], data['Current/uA'], label=captions[color_index] ,marker=markers[color_index],markersize=5, color=color)
             #sns.scatterplot(x=data['Voltage/kV'], y=data['Current/uA'], color=color) 
 
 
@@ -192,7 +193,7 @@ class CSVPlotterApp:
         plt.xlabel('Voltage [kV]')
         plt.ylim(0)
         plt.ylabel('Current [$\mathrm{\mu} A$]')
-        plt.title('Large RPC leakage current against voltage')
+        plt.title('Gas gap 08 progression')
         plt.legend()
         #plt.savefig('All large RPC IV.pdf')
         plt.show()
