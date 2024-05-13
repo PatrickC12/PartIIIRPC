@@ -54,7 +54,7 @@ def extract_columns(file_path):
         results[f'count_{i-2}'] = count_diff
         results[f'time_diff'] = time_diff
 
-        results[f'Error_{i-2}'] = np.sqrt(results[f'count_rate_{i-2}'])
+        results[f'Error_{i-2}'] = results[f'count_rate_{i-2}']/np.sqrt(results[f'count_{i-2}'])
 
     return results
 
