@@ -29,7 +29,15 @@ import ipywidgets as widgets
 from IPython.display import display
 import sys
 from scipy.stats import gaussian_kde
+import tkinter as tk
+from tkinter import ttk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.ticker import MaxNLocator
+import AnubisSuperScript as ass
+from functools import partial
+import importlib
+from tqdm import tqdm
 
 
 
@@ -279,121 +287,133 @@ def process_cluster(cluster_points):
     event_time = sum(point[1] for point in sorted_points) / size
     return {'start': start, 'end': end, 'size': size, 'event_time': event_time}
 
-def calculate_metric_for_combo(combo, rpc_separation):
-
-    rpc_heights = {'rpc1': 1}  
-    for (rpc1, rpc2), separation in rpc_separation.items():
-        if rpc1 in rpc_heights and rpc2 not in rpc_heights:
-            rpc_heights[rpc2] = rpc_heights[rpc1] + separation
-        elif rpc2 in rpc_heights and rpc1 not in rpc_heights:
-            rpc_heights[rpc1] = rpc_heights[rpc2] - separation
-
+def calculate_metric_for_combo(combo, rpc_heights, direction):
     locations = np.array([c['location'] for c in combo])
+    heights = np.array([rpc_heights[c['rpc']] for c in combo])
     uncertainties = np.array([c['uncertainty'] for c in combo])
-    heights = np.array([rpc_heights[c['rpc']] for c in combo])  
-
+    weights = 1 /  (uncertainties ** 2)
     try:
-        slope, intercept = np.polyfit(locations, heights, 1)
-        predicted = slope * locations + intercept
-        residuals = heights - predicted
-        chi2 = np.sum(residuals ** 2 / heights)
-
+        coeffs, res, _, _, _ = np.polyfit(heights, locations, 1, full=True)
     except np.linalg.LinAlgError:
-        slope = 0
-        intercept = 0
-        chi2 = np.inf
-    combined_uncertainty = np.sum(uncertainties)
+        coeffs = [np.inf, np.inf] 
+    # slope, intercept = 1/coeffs[0], -coeffs[1]/coeffs[0]
+    slope, intercept = coeffs
+    predictions = slope * heights + intercept
+    residuals = locations - predictions
+    weighted_residuals = residuals ** 2
+    RSS = np.sum(weighted_residuals)
+    sigma_squared = var_eta if direction == 'eta' else var_phi
+    chi_squared = np.sum(res / sigma_squared)
+    chi_squared_norm = chi_squared / (len(combo)-2) 
+    # chi_squared_norm = chi_squared
 
-    return slope, intercept, chi2, combined_uncertainty, combo
+    return slope, intercept, chi_squared_norm, RSS, combo
 
-def analyze_inter_rpc_hit_with_timing_adjusted(df):
+def analyze_inter_rpc_hit_with_timing_adjusted(df,n):
+    rpc_time_offsets = {
+    ('rpc0', 'eta'): (0, 15),
+    ('rpc0', 'phi'): (0, 15),
+    ('rpc1', 'eta'): (0, 15),
+    ('rpc1', 'phi'): (0, 15),
+    ('rpc2', 'eta'): (0, 15),
+    ('rpc2', 'phi'): (0, 15),
+    ('rpc3', 'eta'): (0, 15),
+    ('rpc3', 'phi'): (0, 15),
+    ('rpc4', 'eta'): (0, 15),
+    ('rpc4', 'phi'): (0, 15),
+    ('rpc5', 'eta'): (0, 15),
+    ('rpc5', 'phi'): (0, 15),
+}
     paths = []
-    total_events = df['Event Number'].nunique()
 
-    adjusted_muon_speed_cm_ns = 28 
+    adjusted_muon_speed_cm_ns = 20
 
-    rpc_separation = {
-        ('rpc1', 'rpc2'): 0.1, # Touching
-        ('rpc2', 'rpc3'): 0.1, # Touching
-        ('rpc3', 'rpc4'): 60,
-        ('rpc4', 'rpc5'): 60,
-        ('rpc5', 'rpc6'): 0.1  # Touching
+    rpc_heights = {
+        'rpc0': 0, 
+        'rpc1': 0.8, 
+        'rpc2': 1.6, 
+        'rpc3': 61.6, 
+        'rpc4': 120.8, 
+        'rpc5': 121.6
     }
-    
 
-    for event_number, event_group in df.groupby('Event Number'):
+
+    for event_number, event_group in tqdm(df.groupby('event_number'), desc="Processing Events"):
+        if len(event_group) > 50:
+            continue
         for direction in ['eta', 'phi']:
-            direction_group = event_group[event_group['Direction'] == direction]
+            direction_group = event_group[event_group['strip_direction'] == direction]
             all_clusters = []
-            
-            unique_rpcs = direction_group['RPC Number'].unique()
+
+            unique_rpcs = direction_group['rpc_number'].unique()
+            if len(unique_rpcs) < n:
+                break
             for rpc in unique_rpcs:
-                rpc_group = direction_group[direction_group['RPC Number'] == rpc]
+                rpc_group = direction_group[direction_group['rpc_number'] == rpc]
                 for _, row in rpc_group.iterrows():
-                    location_scaling = 3.125 if direction == 'eta' else 2.5
-                    cluster_size_scaled = max(row['Cluster Size'] * location_scaling, location_scaling) / 2
+                    location_scaling = scale_eta if direction == 'eta' else scale_phi
+                    strip_locations = np.array(row['locations'])
+                    non_zero_locations = strip_locations[strip_locations != 0]
+                    if non_zero_locations.size > 0:
+                        strip_location = np.mean(non_zero_locations)
+                    else:
+                        continue 
+
+                    location = strip_location * location_scaling
+                    event_time = np.min(row['times']) - rpc_time_offsets[(rpc, direction)][0]
+                    event_time_diff = (np.max(row['times']) - np.min(row['times'])) / len(row['times'])
+                    cluster_size_scaled = max(row['size'] * location_scaling, location_scaling)
                     all_clusters.append({
                         'rpc': rpc,
-                        # 'position': No longer used directly in this simplified approach
-                        'location': row['Cluster Location'] * location_scaling,
-                        'event_time': row['Cluster Event Time'],
+                        'location': location,
+                        'event_time': event_time,
+                        'event_time_diff': event_time_diff,
                         'uncertainty': cluster_size_scaled,
-                        'original_location': row['Cluster Location']
+                        'original_location': strip_location
                     })
 
             combination_metrics = []
-            for combo in combinations(all_clusters, 3):
-                if len({c['rpc'] for c in combo}) < len(combo):
-                    continue
-                time_diffs_are_valid = True
-                for i in range(len(combo)):
-                    for j in range(i+1, len(combo)):
-                        rpc_pair = (combo[i]['rpc'], combo[j]['rpc'])
-                        if rpc_pair not in rpc_separation and rpc_pair[::-1] not in rpc_separation:
-                            continue  
-                        separation_distance = rpc_separation.get(rpc_pair) or rpc_separation.get(rpc_pair[::-1])
-                    
-                        if separation_distance is None:
+            valid_combinations = [] 
+            for combo_size in range(n, len(unique_rpcs) + 1):
+                for combo in combinations(all_clusters, combo_size):
+                    if len({c['rpc'] for c in combo}) != len(combo):
+                        continue  # Skip combinations where RPCs are not unique
 
-                            continue  
+                    time_diffs_are_valid = True
+                    for i in range(len(combo)):
+                        for j in range(i + 1, len(combo)):
+                            error_window = rpc_time_offsets[(combo[i]['rpc'], direction)][1] + rpc_time_offsets[(combo[j]['rpc'], direction)][1]
+                            height_diff = abs(rpc_heights[combo[i]['rpc']] - rpc_heights[combo[j]['rpc']])
+                            time_diff = abs(combo[i]['event_time'] - combo[j]['event_time'])
+                            expected_time_diff = height_diff / adjusted_muon_speed_cm_ns
+                            uncertainty_margin = 0
 
-
-                        time_diff = abs(combo[i]['event_time'] - combo[j]['event_time'])
-                        expected_time_diff = separation_distance / adjusted_muon_speed_cm_ns
-
-                        intrinsic_timing_uncertainty = 5  
-                        if separation_distance == 0.1:  
-                            if time_diff > intrinsic_timing_uncertainty:
+                            if not (time_diff <= expected_time_diff + error_window + uncertainty_margin):
                                 time_diffs_are_valid = False
                                 break
-                        else:  
-                            uncertainty_margin = 5  
-                            if not (time_diff <= expected_time_diff + uncertainty_margin):
-                                time_diffs_are_valid = False
-                                break
+                        if not time_diffs_are_valid:
+                            break
+
                     if not time_diffs_are_valid:
-                        break
+                        continue  # Skip to the next combination if time differences are invalid
 
-                if not time_diffs_are_valid:
-                    continue
-                if time_diffs_are_valid: 
-                    metric = calculate_metric_for_combo(combo,rpc_separation) 
-                    combination_metrics.append(metric) 
-                
+                    # Calculate metrics only for valid combinations
+                    metric = calculate_metric_for_combo(combo, rpc_heights, direction)
+                    if metric[2] <= 3.5:
+                        valid_combinations.append(metric)
+                        
 
-            if combination_metrics:
-                best_combinations = sorted(combination_metrics, key=lambda x: x[2]) 
-                selected_combination = best_combinations[0]
+                for valid_combination in valid_combinations:
+                    paths.append({
+                        'Event Number': event_number,
+                        'Direction': direction,
+                        'Slope': valid_combination[0],
+                        'Intercept': valid_combination[1],
+                        'Used Coordinates': [(c['rpc'], c['original_location'], c['event_time']) for c in valid_combination[-1]],
+                        'chi2 norm': valid_combination[2],
+                        'RSS': valid_combination[3]
+                    })
 
-                paths.append({
-                    'Event Number': event_number,  
-                    'Direction': direction,  
-                    'Slope': selected_combination[0], 
-                    'Intercept': selected_combination[1], 
-                    'Used Coordinates': [(c['rpc'], c['original_location'], c['uncertainty']) for c in selected_combination[-1]],
-                    'chi2': selected_combination[2],
-                    'Combined Uncertainty': selected_combination[3]
-                })
     path_df = pd.DataFrame(paths)
     return path_df
 
@@ -565,114 +585,114 @@ def calculate_metric_for_combo(combo, rpc_heights):
 
     return slope, intercept, slope_error, intercept_error, RSS, combo
 
-def analyze_inter_rpc_hit_with_timing_adjusted(df):
-    rpc_time_offsets = {
-    ('rpc0', 'eta'): (7.94, 12.48),
-    ('rpc0', 'phi'): (-2.38, 13.69),
-    ('rpc1', 'eta'): (8.36, 12.22),
-    ('rpc1', 'phi'): (-3.79, 13.25),
-    ('rpc2', 'eta'): (8.84, 12.56),
-    ('rpc2', 'phi'): (-4.35, 13.57),
-    ('rpc3', 'eta'): (6.86, 12.41),
-    ('rpc3', 'phi'): (-4.3, 13.96),
-    ('rpc4', 'eta'): (2.7, 12.37),
-    ('rpc4', 'phi'): (-7.89, 13.41),
-    ('rpc5', 'eta'): (2.82, 13.05),
-    ('rpc5', 'phi'): (9.15, 14.14),
-}
-    paths = []
+# def analyze_inter_rpc_hit_with_timing_adjusted(df):
+#     rpc_time_offsets = {
+#     ('rpc0', 'eta'): (7.94, 12.48),
+#     ('rpc0', 'phi'): (-2.38, 13.69),
+#     ('rpc1', 'eta'): (8.36, 12.22),
+#     ('rpc1', 'phi'): (-3.79, 13.25),
+#     ('rpc2', 'eta'): (8.84, 12.56),
+#     ('rpc2', 'phi'): (-4.35, 13.57),
+#     ('rpc3', 'eta'): (6.86, 12.41),
+#     ('rpc3', 'phi'): (-4.3, 13.96),
+#     ('rpc4', 'eta'): (2.7, 12.37),
+#     ('rpc4', 'phi'): (-7.89, 13.41),
+#     ('rpc5', 'eta'): (2.82, 13.05),
+#     ('rpc5', 'phi'): (9.15, 14.14),
+# }
+#     paths = []
 
-    adjusted_muon_speed_cm_ns = 28
+#     adjusted_muon_speed_cm_ns = 28
 
-    rpc_heights = {
-        'rpc0': 0, 
-        'rpc1': 0.5, 
-        'rpc2': 1.0, 
-        'rpc3': 61.5, 
-        'rpc4': 121.5, 
-        'rpc5': 122.0
-    }
+#     rpc_heights = {
+#         'rpc0': 0, 
+#         'rpc1': 0.5, 
+#         'rpc2': 1.0, 
+#         'rpc3': 61.5, 
+#         'rpc4': 121.5, 
+#         'rpc5': 122.0
+#     }
 
-    for event_number, event_group in tqdm(df.groupby('event_number'), desc="Processing Events"):
-        for direction in ['eta', 'phi']:
-            direction_group = event_group[event_group['strip_direction'] == direction]
-            all_clusters = []
+#     for event_number, event_group in tqdm(df.groupby('event_number'), desc="Processing Events"):
+#         for direction in ['eta', 'phi']:
+#             direction_group = event_group[event_group['strip_direction'] == direction]
+#             all_clusters = []
 
-            unique_rpcs = direction_group['rpc_number'].unique()
-            for rpc in unique_rpcs:
-                rpc_group = direction_group[direction_group['rpc_number'] == rpc]
-                for _, row in rpc_group.iterrows():
-                    location_scaling = 3.09375 if direction == 'eta' else 2.8125
-                    strip_locations = np.array(row['locations'])
-                    non_zero_locations = strip_locations[strip_locations != 0]
-                    if non_zero_locations.size > 0:
-                        strip_location = non_zero_locations[0] 
-                    else:
-                        continue 
+#             unique_rpcs = direction_group['rpc_number'].unique()
+#             for rpc in unique_rpcs:
+#                 rpc_group = direction_group[direction_group['rpc_number'] == rpc]
+#                 for _, row in rpc_group.iterrows():
+#                     location_scaling = 3.09375 if direction == 'eta' else 2.8125
+#                     strip_locations = np.array(row['locations'])
+#                     non_zero_locations = strip_locations[strip_locations != 0]
+#                     if non_zero_locations.size > 0:
+#                         strip_location = non_zero_locations[0] 
+#                     else:
+#                         continue 
 
-                    location = strip_location * location_scaling
-                    event_time = np.mean(row['times']) - rpc_time_offsets[(rpc, direction)][0]
-                    cluster_size_scaled = max(row['size'] * location_scaling, location_scaling) / 2
-                    all_clusters.append({
-                        'rpc': rpc,
-                        'location': location,
-                        'event_time': event_time,
-                        'uncertainty': cluster_size_scaled,
-                        'original_location': strip_location
-                    })
+#                     location = strip_location * location_scaling
+#                     event_time = np.mean(row['times']) - rpc_time_offsets[(rpc, direction)][0]
+#                     cluster_size_scaled = max(row['size'] * location_scaling, location_scaling) / 2
+#                     all_clusters.append({
+#                         'rpc': rpc,
+#                         'location': location,
+#                         'event_time': event_time,
+#                         'uncertainty': cluster_size_scaled,
+#                         'original_location': strip_location
+#                     })
 
-            combination_metrics = []
-            valid_combinations = [] 
-            # for n in range(3, 4): 
-            for combo in combinations(all_clusters, 3):
-                used_rpcs_set = {c['rpc'] for c in combo}
+#             combination_metrics = []
+#             valid_combinations = [] 
+#             # for n in range(3, 4): 
+#             for combo in combinations(all_clusters, 3):
+#                 used_rpcs_set = {c['rpc'] for c in combo}
                 
-                if not used_rpcs_set.issubset({'rpc0', 'rpc1', 'rpc2'}):
-                    metric = calculate_metric_for_combo(combo, rpc_heights)
+#                 if not used_rpcs_set.issubset({'rpc0', 'rpc1', 'rpc2'}):
+#                     metric = calculate_metric_for_combo(combo, rpc_heights)
         
-                    # Check RSS threshold here and ensure RPC combination uniqueness
-                    if metric[4] <= 10 and len(used_rpcs_set) == len(combo):
-                        combination_metrics.append(metric)
+#                     # Check RSS threshold here and ensure RPC combination uniqueness
+#                     if metric[4] <= 10 and len(used_rpcs_set) == len(combo):
+#                         combination_metrics.append(metric)
                         
-            # Move filtering logic outside the loop so it's not reset each time
-            for combo_metric in combination_metrics:
-                combo = combo_metric[-1]
-                if len({c['rpc'] for c in combo}) < len(combo):
-                    continue
+#             # Move filtering logic outside the loop so it's not reset each time
+#             for combo_metric in combination_metrics:
+#                 combo = combo_metric[-1]
+#                 if len({c['rpc'] for c in combo}) < len(combo):
+#                     continue
 
-                time_diffs_are_valid = True
-                for i in range(len(combo)):
-                    for j in range(i + 1, len(combo)):
-                        error_window = rpc_time_offsets[(combo[i]['rpc'], direction)][1] + rpc_time_offsets[(combo[j]['rpc'], direction)][1]
+#                 time_diffs_are_valid = True
+#                 for i in range(len(combo)):
+#                     for j in range(i + 1, len(combo)):
+#                         error_window = rpc_time_offsets[(combo[i]['rpc'], direction)][1] + rpc_time_offsets[(combo[j]['rpc'], direction)][1]
                         
-                        # Use direct height differences
-                        height_diff = abs(rpc_heights[combo[i]['rpc']] - rpc_heights[combo[j]['rpc']])
+#                         # Use direct height differences
+#                         height_diff = abs(rpc_heights[combo[i]['rpc']] - rpc_heights[combo[j]['rpc']])
                         
-                        time_diff = abs(combo[i]['event_time'] - combo[j]['event_time'])
-                        expected_time_diff = height_diff / adjusted_muon_speed_cm_ns
+#                         time_diff = abs(combo[i]['event_time'] - combo[j]['event_time'])
+#                         expected_time_diff = height_diff / adjusted_muon_speed_cm_ns
 
-                        uncertainty_margin = 5
-                        # Use the expected time difference with the error window and uncertainty margin for validation
-                        if not (time_diff <= expected_time_diff + error_window + uncertainty_margin):
-                            time_diffs_are_valid = False
-                            break
-                    if not time_diffs_are_valid:
-                        break
+#                         uncertainty_margin = 5
+#                         # Use the expected time difference with the error window and uncertainty margin for validation
+#                         if not (time_diff <= expected_time_diff + error_window + uncertainty_margin):
+#                             time_diffs_are_valid = False
+#                             break
+#                     if not time_diffs_are_valid:
+#                         break
 
-                if time_diffs_are_valid:
-                    valid_combinations.append(combo_metric)
+#                 if time_diffs_are_valid:
+#                     valid_combinations.append(combo_metric)
 
-            for valid_combination in valid_combinations:
-                paths.append({
-                    'Event Number': event_number,
-                    'Direction': direction,
-                    'Slope': valid_combination[0],
-                    'Intercept': valid_combination[1],
-                    'Slope_error': valid_combination[2],
-                    'Intercept_error': valid_combination[3],
-                    'Used Coordinates': [(c['rpc'], c['original_location'], c['event_time']) for c in valid_combination[-1]],
-                    'RSS': valid_combination[4],
-                })
+#             for valid_combination in valid_combinations:
+#                 paths.append({
+#                     'Event Number': event_number,
+#                     'Direction': direction,
+#                     'Slope': valid_combination[0],
+#                     'Intercept': valid_combination[1],
+#                     'Slope_error': valid_combination[2],
+#                     'Intercept_error': valid_combination[3],
+#                     'Used Coordinates': [(c['rpc'], c['original_location'], c['event_time']) for c in valid_combination[-1]],
+#                     'RSS': valid_combination[4],
+#                 })
 
-    path_df = pd.DataFrame(paths)
-    return path_df
+#     path_df = pd.DataFrame(paths)
+#     return path_df
